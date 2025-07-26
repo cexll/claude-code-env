@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "Bash(ls:*)",
+      "Bash(go mod init:*)",
+      "Bash(mkdir:*)",
+      "Bash(go get:*)",
+      "Bash(go mod:*)",
+      "Bash(go build:*)",
+      "Bash(./cce --help)",
+      "Bash(./cce env --help)",
+      "Bash(./cce env list)",
+      "Bash(make:*)",
+      "Bash(go test:*)",
+      "Bash(find:*)",
+      "Bash(./cce version)",
+      "Bash(./cce env add --help)",
+      "Bash(rm:*)",
+      "Bash(go tool cover:*)",
+      "Bash(grep:*)",
+      "Bash(git init)",
+      "Bash(git add .)",
+      "Bash(git commit -m \"Initial commit with current codebase\")"
+    ],
+    "deny": []
+  }
+}
