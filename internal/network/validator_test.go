@@ -10,13 +10,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/claude-code/env-switcher/pkg/types"
-	"github.com/claude-code/env-switcher/test/testutils"
+	"github.com/cexll/claude-code-env/pkg/types"
+	"github.com/cexll/claude-code-env/test/testutils"
 )
 
 func TestNewValidator(t *testing.T) {
 	validator := NewValidator()
-	
+
 	assert.NotNil(t, validator)
 	// Validator should be ready to use immediately
 	assert.NotNil(t, validator)
@@ -26,18 +26,18 @@ func TestValidateEndpoint_Success(t *testing.T) {
 	// Create mock server
 	mockServer := testutils.NewMockHTTPServer()
 	defer mockServer.Close()
-	
+
 	mockServer.AddResponse("/", testutils.MockResponse{
 		StatusCode: 200,
 		Headers:    map[string]string{"Content-Type": "application/json"},
 		Body:       `{"status": "ok"}`,
 	})
-	
+
 	validator := NewValidator()
-	
+
 	result, err := validator.ValidateEndpoint(mockServer.URL())
 	require.NoError(t, err)
-	
+
 	assert.True(t, result.Success)
 	assert.Equal(t, 200, result.StatusCode)
 	assert.True(t, result.ResponseTime > 0)
@@ -52,12 +52,12 @@ func TestValidateEndpoint_HTTPSSuccess(t *testing.T) {
 		w.Write([]byte("OK"))
 	}))
 	defer server.Close()
-	
+
 	validator := NewValidator()
-	
+
 	result, err := validator.ValidateEndpoint(server.URL)
 	require.NoError(t, err)
-	
+
 	assert.True(t, result.Success)
 	assert.Equal(t, 200, result.StatusCode)
 	assert.True(t, result.SSLValid)
@@ -65,7 +65,7 @@ func TestValidateEndpoint_HTTPSSuccess(t *testing.T) {
 
 func TestValidateEndpoint_InvalidURL(t *testing.T) {
 	validator := NewValidator()
-	
+
 	testCases := []struct {
 		name        string
 		url         string
@@ -97,12 +97,12 @@ func TestValidateEndpoint_InvalidURL(t *testing.T) {
 			expectedErr: "URL must have a valid host",
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := validator.ValidateEndpoint(tc.url)
 			require.Error(t, err)
-			
+
 			var networkErr *types.NetworkError
 			assert.ErrorAs(t, err, &networkErr)
 			assert.Equal(t, types.NetworkInvalidURL, networkErr.Type)
@@ -114,7 +114,7 @@ func TestValidateEndpoint_InvalidURL(t *testing.T) {
 
 func TestValidateEndpoint_NetworkErrors(t *testing.T) {
 	validator := NewValidator()
-	
+
 	testCases := []struct {
 		name         string
 		url          string
@@ -131,12 +131,12 @@ func TestValidateEndpoint_NetworkErrors(t *testing.T) {
 			expectedType: types.NetworkUnreachable,
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result, err := validator.ValidateEndpoint(tc.url)
 			require.NoError(t, err) // ValidateEndpoint returns result with error info, not Go error
-			
+
 			assert.False(t, result.Success)
 			assert.NotEmpty(t, result.Error)
 		})
@@ -150,12 +150,12 @@ func TestValidateEndpoint_Timeout(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer slowServer.Close()
-	
+
 	validator := NewValidator()
-	
+
 	result, err := validator.ValidateEndpointWithTimeout(slowServer.URL, 100*time.Millisecond)
 	require.NoError(t, err)
-	
+
 	assert.False(t, result.Success)
 	assert.Contains(t, result.Error, "timeout")
 }
@@ -167,21 +167,21 @@ func TestValidateEndpoint_Caching(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
-	
+
 	validator := NewValidator()
-	
+
 	// First request
 	result1, err := validator.ValidateEndpoint(server.URL)
 	require.NoError(t, err)
 	assert.True(t, result1.Success)
 	assert.Equal(t, 1, requestCount)
-	
+
 	// Second request should use cache
 	result2, err := validator.ValidateEndpoint(server.URL)
 	require.NoError(t, err)
 	assert.True(t, result2.Success)
 	assert.Equal(t, 1, requestCount) // No additional request made
-	
+
 	// Results should be identical
 	assert.Equal(t, result1.StatusCode, result2.StatusCode)
 	assert.Equal(t, result1.Success, result2.Success)
@@ -194,17 +194,17 @@ func TestValidateEndpoint_CacheClear(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
-	
+
 	validator := NewValidator()
-	
+
 	// First request
 	_, err := validator.ValidateEndpoint(server.URL)
 	require.NoError(t, err)
 	assert.Equal(t, 1, requestCount)
-	
+
 	// Clear cache
 	validator.ClearCache()
-	
+
 	// Second request should make new HTTP request
 	_, err = validator.ValidateEndpoint(server.URL)
 	require.NoError(t, err)
@@ -223,9 +223,9 @@ func TestTestAPIConnectivity_Success(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	
+
 	validator := NewValidator()
-	
+
 	env := &types.Environment{
 		Name:    "test",
 		BaseURL: server.URL,
@@ -234,7 +234,7 @@ func TestTestAPIConnectivity_Success(t *testing.T) {
 			"X-Custom": "value",
 		},
 	}
-	
+
 	err := validator.TestAPIConnectivity(env)
 	require.NoError(t, err)
 }
@@ -245,18 +245,18 @@ func TestTestAPIConnectivity_AuthenticationError(t *testing.T) {
 		w.Write([]byte(`{"error": "invalid key"}`))
 	}))
 	defer server.Close()
-	
+
 	validator := NewValidator()
-	
+
 	env := &types.Environment{
 		Name:    "test",
 		BaseURL: server.URL,
 		APIKey:  "invalid-key",
 	}
-	
+
 	err := validator.TestAPIConnectivity(env)
 	require.Error(t, err)
-	
+
 	var networkErr *types.NetworkError
 	assert.ErrorAs(t, err, &networkErr)
 	assert.Equal(t, types.NetworkAuthenticationError, networkErr.Type)
@@ -270,18 +270,18 @@ func TestTestAPIConnectivity_ForbiddenError(t *testing.T) {
 		w.Write([]byte(`{"error": "insufficient permissions"}`))
 	}))
 	defer server.Close()
-	
+
 	validator := NewValidator()
-	
+
 	env := &types.Environment{
 		Name:    "test",
 		BaseURL: server.URL,
 		APIKey:  "valid-but-limited-key",
 	}
-	
+
 	err := validator.TestAPIConnectivity(env)
 	require.Error(t, err)
-	
+
 	var networkErr *types.NetworkError
 	assert.ErrorAs(t, err, &networkErr)
 	assert.Equal(t, types.NetworkAuthenticationError, networkErr.Type)
@@ -290,10 +290,10 @@ func TestTestAPIConnectivity_ForbiddenError(t *testing.T) {
 
 func TestTestAPIConnectivity_NilEnvironment(t *testing.T) {
 	validator := NewValidator()
-	
+
 	err := validator.TestAPIConnectivity(nil)
 	require.Error(t, err)
-	
+
 	var networkErr *types.NetworkError
 	assert.ErrorAs(t, err, &networkErr)
 	assert.Equal(t, types.NetworkInvalidURL, networkErr.Type)
@@ -305,12 +305,12 @@ func TestValidateEndpoint_SSLCertificateValidation(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
-	
+
 	validator := NewValidator()
-	
+
 	result, err := validator.ValidateEndpoint(server.URL)
 	require.NoError(t, err)
-	
+
 	assert.True(t, result.Success)
 	assert.True(t, result.SSLValid)
 }
@@ -326,15 +326,15 @@ func TestValidateEndpoint_RetryLogic(t *testing.T) {
 		}
 		w.WriteHeader(http.StatusOK)
 	}))
-	
+
 	// Close server immediately to trigger connection errors
 	server.Close()
-	
+
 	validator := NewValidator()
-	
+
 	result, err := validator.ValidateEndpoint(server.URL)
 	require.NoError(t, err)
-	
+
 	// Should fail after retries
 	assert.False(t, result.Success)
 	assert.NotEmpty(t, result.Error)
@@ -346,20 +346,20 @@ func TestValidateEndpoint_ConcurrentAccess(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
-	
+
 	validator := NewValidator()
-	
+
 	// Run multiple concurrent validations
 	const concurrency = 10
 	results := make(chan error, concurrency)
-	
+
 	for i := 0; i < concurrency; i++ {
 		go func() {
 			_, err := validator.ValidateEndpoint(server.URL)
 			results <- err
 		}()
 	}
-	
+
 	// Wait for all to complete
 	for i := 0; i < concurrency; i++ {
 		err := <-results
@@ -372,18 +372,18 @@ func TestValidateEndpoint_CacheStats(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
-	
+
 	validator := NewValidator()
-	
+
 	// Initial stats should be empty
 	stats := validator.GetCacheStats()
 	assert.Equal(t, 0, stats.TotalEntries)
 	assert.Equal(t, 0, stats.ValidEntries)
-	
+
 	// Make some requests
 	validator.ValidateEndpoint(server.URL + "/path1")
 	validator.ValidateEndpoint(server.URL + "/path2")
-	
+
 	// Check updated stats
 	stats = validator.GetCacheStats()
 	assert.Equal(t, 2, stats.TotalEntries)
@@ -393,39 +393,39 @@ func TestValidateEndpoint_CacheStats(t *testing.T) {
 
 func TestValidateEndpoint_ErrorSuggestions(t *testing.T) {
 	validator := NewValidator()
-	
+
 	testCases := []struct {
-		name            string
-		url             string
-		expectedType    types.NetworkErrorType
+		name                       string
+		url                        string
+		expectedType               types.NetworkErrorType
 		expectedSuggestionKeywords []string
 	}{
 		{
-			name:         "invalid URL format",
-			url:          "not-a-url",
-			expectedType: types.NetworkInvalidURL,
+			name:                       "invalid URL format",
+			url:                        "not-a-url",
+			expectedType:               types.NetworkInvalidURL,
 			expectedSuggestionKeywords: []string{"protocol", "https://"},
 		},
 		{
-			name:         "empty URL",
-			url:          "",
-			expectedType: types.NetworkInvalidURL,
+			name:                       "empty URL",
+			url:                        "",
+			expectedType:               types.NetworkInvalidURL,
 			expectedSuggestionKeywords: []string{"HTTP", "HTTPS"},
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := validator.ValidateEndpoint(tc.url)
 			require.Error(t, err)
-			
+
 			var networkErr *types.NetworkError
 			assert.ErrorAs(t, err, &networkErr)
 			assert.Equal(t, tc.expectedType, networkErr.Type)
-			
+
 			suggestions := networkErr.GetSuggestions()
 			assert.NotEmpty(t, suggestions)
-			
+
 			// Check that expected keywords appear in suggestions
 			for _, keyword := range tc.expectedSuggestionKeywords {
 				found := false
@@ -446,30 +446,30 @@ func TestValidateEndpoint_Performance(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
-	
+
 	validator := NewValidator()
-	
+
 	perfHelper := testutils.NewPerformanceHelper()
-	
+
 	// Measure single validation
 	perfHelper.MeasureOperation("single_validation", func() {
 		validator.ValidateEndpoint(server.URL)
 	})
-	
+
 	// Measure cached validation (should be faster)
 	perfHelper.MeasureOperation("cached_validation", func() {
 		validator.ValidateEndpoint(server.URL)
 	})
-	
+
 	measurements := perfHelper.GetMeasurements()
 	assert.Len(t, measurements, 2)
-	
+
 	// Cached validation should be significantly faster
 	singleDuration := perfHelper.GetAverageDuration("single_validation")
 	cachedDuration := perfHelper.GetAverageDuration("cached_validation")
-	
-	assert.True(t, cachedDuration < singleDuration, 
-		"Cached validation (%v) should be faster than single validation (%v)", 
+
+	assert.True(t, cachedDuration < singleDuration,
+		"Cached validation (%v) should be faster than single validation (%v)",
 		cachedDuration, singleDuration)
 }
 
@@ -478,7 +478,7 @@ func TestValidateEndpoint_CustomHTTPSValidation(t *testing.T) {
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
-	
+
 	// Configure TLS with expired certificate
 	cert, _ := tls.X509KeyPair([]byte(`-----BEGIN CERTIFICATE-----
 MIICEjCCAXsCAg36MA0GCSqGSIb3DQEBBQUAMIGbMQswCQYDVQQGEwJKUDEOMAwG
@@ -510,16 +510,16 @@ P6a2F7Y8v6+2fJ3Y1Y7G3Y7Q6y8CQAzQ8Q7L6Y6J8Y2eY8pG8j7v1Y4Y7eP8G8y6
 J4t1F+J6fJ8P8Y6Q7bJyY6Y8v8F7Y1F6zY8b9r1J6Y3aY5wCQQC2vY7z8f9Y7jYJ
 1Y8c7Q8Y6vJbzY8P8Y6rGvK7Y6f1tY9Y8z8Y6eF+J8Y6z7a8Y8v6Y2nY8p2J5J8Y
 -----END PRIVATE KEY-----`))
-	
+
 	server.TLS = &tls.Config{Certificates: []tls.Certificate{cert}}
 	server.StartTLS()
 	defer server.Close()
-	
+
 	validator := NewValidator()
-	
+
 	result, err := validator.ValidateEndpoint(server.URL)
 	require.NoError(t, err)
-	
+
 	// Should handle SSL validation appropriately
 	assert.NotNil(t, result)
 }

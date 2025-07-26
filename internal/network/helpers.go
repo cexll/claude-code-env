@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/claude-code/env-switcher/pkg/types"
+	"github.com/cexll/claude-code-env/pkg/types"
 )
 
 // performRequestWithRetry executes HTTP request with retry logic and exponential backoff.
@@ -310,12 +310,12 @@ type CacheStats struct {
 
 // contains checks if a string contains a substring (case-insensitive helper).
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && 
-		(s == substr || 
-		 len(s) > len(substr) && 
-		 (s[:len(substr)] == substr || 
-		  s[len(s)-len(substr):] == substr || 
-		  findInString(s, substr)))
+	return len(s) >= len(substr) &&
+		(s == substr ||
+			len(s) > len(substr) &&
+				(s[:len(substr)] == substr ||
+					s[len(s)-len(substr):] == substr ||
+					findInString(s, substr)))
 }
 
 // findInString searches for substring in string.

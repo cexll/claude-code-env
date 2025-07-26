@@ -28,7 +28,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/claude-code/env-switcher/pkg/types"
+	"github.com/cexll/claude-code-env/pkg/types"
 )
 
 // Validator provides network connectivity validation with caching and SSL verification.
@@ -36,21 +36,21 @@ import (
 // The Validator performs comprehensive network tests including connectivity checks,
 // SSL certificate validation, and diagnostic information collection.
 type Validator struct {
-	client        *http.Client
-	cache         *ValidationCache
-	timeout       time.Duration
-	cacheTTL      time.Duration
-	maxRetries    int
-	retryDelay    time.Duration
-	mutex         sync.RWMutex
+	client     *http.Client
+	cache      *ValidationCache
+	timeout    time.Duration
+	cacheTTL   time.Duration
+	maxRetries int
+	retryDelay time.Duration
+	mutex      sync.RWMutex
 }
 
 // ValidationCache stores cached validation results with TTL management.
 type ValidationCache struct {
-	results   map[string]*CachedResult
-	mutex     sync.RWMutex
+	results    map[string]*CachedResult
+	mutex      sync.RWMutex
 	cleanupTTL time.Duration
-	lastClean time.Time
+	lastClean  time.Time
 }
 
 // CachedResult represents a cached validation result with timestamp.

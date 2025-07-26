@@ -7,10 +7,10 @@ import (
 
 // FlagRegistry maintains classification of CCE and Claude CLI flags
 type FlagRegistry struct {
-	cceFlags           map[string]FlagInfo
-	claudeFlags        map[string]FlagInfo
-	conflictFlags      map[string]ConflictInfo
-	flagAliases        map[string]string // Maps short flags to long flags
+	cceFlags      map[string]FlagInfo
+	claudeFlags   map[string]FlagInfo
+	conflictFlags map[string]ConflictInfo
+	flagAliases   map[string]string // Maps short flags to long flags
 }
 
 // FlagInfo contains information about a specific flag
@@ -50,12 +50,12 @@ func NewFlagRegistry() *FlagRegistry {
 		conflictFlags: make(map[string]ConflictInfo),
 		flagAliases:   make(map[string]string),
 	}
-	
+
 	registry.initializeCCEFlags()
 	registry.initializeClaudeFlags()
 	registry.initializeConflicts()
 	registry.initializeAliases()
-	
+
 	return registry
 }
 
@@ -105,7 +105,7 @@ func (r *FlagRegistry) initializeCCEFlags() {
 			Category:    HelpFlag,
 		},
 	}
-	
+
 	for _, flag := range cceFlags {
 		r.cceFlags[flag.Name] = flag
 	}
@@ -221,7 +221,7 @@ func (r *FlagRegistry) initializeClaudeFlags() {
 			Category:    OutputFlag,
 		},
 	}
-	
+
 	for _, flag := range claudeFlags {
 		r.claudeFlags[flag.Name] = flag
 	}
@@ -249,7 +249,7 @@ func (r *FlagRegistry) initializeConflicts() {
 			Message:    "CCE version flag takes precedence",
 		},
 	}
-	
+
 	for _, conflict := range conflicts {
 		r.conflictFlags[conflict.CCEFlag] = conflict
 	}
@@ -262,7 +262,7 @@ func (r *FlagRegistry) initializeAliases() {
 		"-v": "--verbose",
 		"-h": "--help",
 	}
-	
+
 	for short, long := range aliases {
 		r.flagAliases[short] = long
 	}
@@ -353,56 +353,56 @@ func (r *FlagRegistry) IsKnownFlag(flag string) bool {
 // GetFlagCategory returns the category of a flag
 func (r *FlagRegistry) GetFlagCategory(flag string) (FlagCategory, bool) {
 	normalized := r.normalizeFlag(flag)
-	
+
 	if info, exists := r.cceFlags[normalized]; exists {
 		return info.Category, true
 	}
-	
+
 	if info, exists := r.claudeFlags[normalized]; exists {
 		return info.Category, true
 	}
-	
+
 	return ConfigurationFlag, false
 }
 
 // GetFlagDescription returns the description of a flag
 func (r *FlagRegistry) GetFlagDescription(flag string) (string, bool) {
 	normalized := r.normalizeFlag(flag)
-	
+
 	if info, exists := r.cceFlags[normalized]; exists {
 		return info.Description, true
 	}
-	
+
 	if info, exists := r.claudeFlags[normalized]; exists {
 		return info.Description, true
 	}
-	
+
 	return "", false
 }
 
 // ValidateFlag performs basic validation on a flag
 func (r *FlagRegistry) ValidateFlag(flag string, value string) error {
 	normalized := r.normalizeFlag(flag)
-	
+
 	var info FlagInfo
 	var exists bool
-	
+
 	if info, exists = r.cceFlags[normalized]; !exists {
 		if info, exists = r.claudeFlags[normalized]; !exists {
 			return nil // Unknown flags are not validated here
 		}
 	}
-	
+
 	// Check if flag requires a value but none was provided
 	if info.TakesValue && strings.TrimSpace(value) == "" {
 		return fmt.Errorf("flag %s requires a value", flag)
 	}
-	
+
 	// Check if flag doesn't take a value but one was provided
 	if !info.TakesValue && value != "" {
 		return fmt.Errorf("flag %s does not take a value", flag)
 	}
-	
+
 	return nil
 }
 

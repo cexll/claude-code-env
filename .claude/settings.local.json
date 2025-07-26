@@ -22,7 +22,14 @@
       "Bash(git init)",
       "Bash(git add .)",
       "Bash(git commit -m \"Initial commit with current codebase\")",
-      "Bash(git commit -m \"Pre-migration safety checkpoint\")"
+      "Bash(git commit -m \"Pre-migration safety checkpoint\")",
+      "Bash(go list ./...)",
+      "Bash(go list -json ./internal/parser)",
+      "Bash(go vet ./internal/parser)",
+      "Bash(sed -n '115,120p' internal/parser/analyzer.go)",
+      "Bash(sed -n '160,185p' internal/parser/analyzer.go)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   }

@@ -80,13 +80,13 @@ func (lpb *LaunchParametersBuilder) WithDefaults() *LaunchParametersBuilder {
 	if lpb.params.Timeout == 0 {
 		lpb.params.Timeout = 5 * time.Minute
 	}
-	
+
 	if lpb.params.WorkingDir == "" {
 		if wd, err := os.Getwd(); err == nil {
 			lpb.params.WorkingDir = wd
 		}
 	}
-	
+
 	return lpb
 }
 
@@ -94,12 +94,12 @@ func (lpb *LaunchParametersBuilder) WithDefaults() *LaunchParametersBuilder {
 func (lpb *LaunchParametersBuilder) Build() (*LaunchParameters, error) {
 	// Apply defaults if not already applied
 	lpb.WithDefaults()
-	
+
 	// Validate the parameters
 	if err := lpb.params.Validate(); err != nil {
 		return nil, err
 	}
-	
+
 	// Return a copy to prevent external modification
 	result := *lpb.params
 	return &result, nil

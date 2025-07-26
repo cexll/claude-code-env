@@ -5,13 +5,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/claude-code/env-switcher/pkg/types"
+	"github.com/cexll/claude-code-env/pkg/types"
 )
 
 // DelegationEngine decides whether to handle commands internally or delegate to Claude CLI
 type DelegationEngine struct {
-	Analyzer *ArgumentAnalyzer  // Make public for access
-	Registry *FlagRegistry      // Make public for access
+	Analyzer *ArgumentAnalyzer // Make public for access
+	Registry *FlagRegistry     // Make public for access
 }
 
 // NewDelegationEngine creates a new DelegationEngine instance
@@ -35,13 +35,13 @@ const (
 
 // DelegationPlan contains all information needed to execute a delegation strategy
 type DelegationPlan struct {
-	Strategy      DelegationStrategy
-	Environment   *types.Environment
-	ClaudeArgs    []string
-	EnvVars       map[string]string
-	WorkingDir    string
-	CCEFlags      *CCEFlags
-	Metadata      map[string]interface{}
+	Strategy    DelegationStrategy
+	Environment *types.Environment
+	ClaudeArgs  []string
+	EnvVars     map[string]string
+	WorkingDir  string
+	CCEFlags    *CCEFlags
+	Metadata    map[string]interface{}
 }
 
 // Implement the interface methods for DelegationPlan
@@ -156,13 +156,13 @@ func (d *DelegationEngine) PrepareDelegation(env *types.Environment, args []stri
 	preservedArgs := d.Analyzer.PreserveArgumentStructure(claudeArgs)
 
 	plan := &DelegationPlan{
-		Strategy:   strategy,
+		Strategy:    strategy,
 		Environment: env,
-		ClaudeArgs: preservedArgs,
-		EnvVars:    envVars,
-		WorkingDir: workingDir,
-		CCEFlags:   cceFlags,
-		Metadata:   d.createMetadata(args, strategy),
+		ClaudeArgs:  preservedArgs,
+		EnvVars:     envVars,
+		WorkingDir:  workingDir,
+		CCEFlags:    cceFlags,
+		Metadata:    d.createMetadata(args, strategy),
 	}
 
 	return plan, nil
@@ -262,7 +262,7 @@ func (d *DelegationEngine) validateEnvironment(env *types.Environment) error {
 	if env.BaseURL == "" {
 		return fmt.Errorf("base URL is required")
 	}
-	
+
 	if env.APIKey == "" {
 		return fmt.Errorf("API key is required")
 	}

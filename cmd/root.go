@@ -4,20 +4,20 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/cexll/claude-code-env/internal/config"
+	"github.com/cexll/claude-code-env/internal/launcher"
+	"github.com/cexll/claude-code-env/internal/parser"
+	"github.com/cexll/claude-code-env/internal/ui"
+	"github.com/cexll/claude-code-env/pkg/types"
 	"github.com/spf13/cobra"
-	"github.com/claude-code/env-switcher/internal/config"
-	"github.com/claude-code/env-switcher/internal/launcher"
-	"github.com/claude-code/env-switcher/internal/parser"
-	"github.com/claude-code/env-switcher/internal/ui"
-	"github.com/claude-code/env-switcher/pkg/types"
 )
 
 var (
-	cfgFile    string
-	envName    string
-	verbose    bool
+	cfgFile       string
+	envName       string
+	verbose       bool
 	noInteractive bool
-	version    = "1.1.0" // Updated version with pass-through and model support
+	version       = "1.1.0" // Updated version with pass-through and model support
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -50,7 +50,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&envName, "env", "e", "", "environment name to use")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVar(&noInteractive, "no-interactive", false, "disable interactive mode")
-	
+
 	// Add version command
 	rootCmd.AddCommand(&cobra.Command{
 		Use:   "version",
@@ -71,7 +71,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 
 	ui := ui.NewTerminalUI()
 	launcher := launcher.NewSystemLauncher()
-	
+
 	// Initialize argument analysis components
 	registry := parser.NewFlagRegistry()
 	analyzer := parser.NewArgumentAnalyzer(registry)
@@ -84,7 +84,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	}
 
 	if verbose {
-		ui.ShowInfo(fmt.Sprintf("Argument analysis: CCE flags=%t, Claude flags=%t, requires passthrough=%t", 
+		ui.ShowInfo(fmt.Sprintf("Argument analysis: CCE flags=%t, Claude flags=%t, requires passthrough=%t",
 			analysis.HasCCEFlags, analysis.HasClaudeFlags, analysis.RequiresPassthrough))
 	}
 
@@ -117,7 +117,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 func handleDelegation(engine *parser.DelegationEngine, launcher *launcher.SystemLauncher, cfg *types.Config, args []string, ui *ui.TerminalUI) error {
 	// Determine environment to use
 	var selectedEnv *types.Environment
-	
+
 	// Extract CCE flags to see if environment is specified
 	analyzer := engine.Analyzer
 	cceFlags, _, err := analyzer.ExtractCCEFlags(args)
@@ -161,11 +161,11 @@ func handleDelegation(engine *parser.DelegationEngine, launcher *launcher.System
 
 	// Enable pass-through mode and delegate
 	launcher.SetPassthroughMode(true)
-	
+
 	if cceFlags.Verbose {
-		ui.ShowInfo(fmt.Sprintf("Delegating to Claude CLI with environment: %s", 
+		ui.ShowInfo(fmt.Sprintf("Delegating to Claude CLI with environment: %s",
 			getEnvironmentDisplayName(selectedEnv)))
-		
+
 		if selectedEnv != nil && selectedEnv.Model != "" {
 			ui.ShowInfo(fmt.Sprintf("Using model: %s", selectedEnv.Model))
 		}
@@ -184,7 +184,11 @@ func handleCCECommand(configManager types.ConfigManager, ui *ui.TerminalUI, laun
 		if verbose {
 			ui.ShowInfo("No environments configured, launching Claude Code directly")
 		}
-		return launcher.Launch(nil, args)
+		params := &types.LaunchParameters{
+			Environment: nil,
+			Arguments:   args,
+		}
+		return launcher.Launch(params)
 	}
 
 	if envName != "" {
@@ -218,7 +222,7 @@ func handleCCECommand(configManager types.ConfigManager, ui *ui.TerminalUI, laun
 				selectedEnv = &env
 			}
 		}
-		
+
 		if selectedEnv == nil {
 			return fmt.Errorf("multiple environments available but no environment specified. Use --env flag or run interactively")
 		}
@@ -243,7 +247,11 @@ func handleCCECommand(configManager types.ConfigManager, ui *ui.TerminalUI, laun
 		}
 	}
 
-	return launcher.Launch(selectedEnv, args)
+	params := &types.LaunchParameters{
+		Environment: selectedEnv,
+		Arguments:   args,
+	}
+	return launcher.Launch(params)
 }
 
 // showCombinedHelp displays help information for both CCE and Claude CLI
@@ -256,7 +264,7 @@ func showCombinedHelp(ui *ui.TerminalUI, launcher types.ClaudeCodeLauncher) erro
 	fmt.Println()
 	fmt.Println("CCE-specific flags:")
 	fmt.Println("  --env, -e string      Environment name to use")
-	fmt.Println("  --config string       Config file path") 
+	fmt.Println("  --config string       Config file path")
 	fmt.Println("  --verbose, -v         Verbose output")
 	fmt.Println("  --no-interactive      Disable interactive mode")
 	fmt.Println("  --help, -h            Show this help")
@@ -270,16 +278,20 @@ func showCombinedHelp(ui *ui.TerminalUI, launcher types.ClaudeCodeLauncher) erro
 	fmt.Println("  cce -r \"You are a helpful assistant\" # Pass-through to Claude CLI")
 	fmt.Println("  cce --env staging -r \"Debug this code\" # Environment + Claude flags")
 	fmt.Println()
-	
+
 	// Try to show Claude CLI help as well
 	if err := launcher.ValidateClaudeCode(); err == nil {
 		fmt.Println("Claude CLI help:")
 		fmt.Println("================")
-		
+
 		// Execute claude --help to show Claude CLI options
 		// Note: This is a simplified approach - in production, you might want
 		// to capture and format the output more carefully
-		launcher.Launch(nil, []string{"--help"})
+		params := &types.LaunchParameters{
+			Environment: nil,
+			Arguments:   []string{"--help"},
+		}
+		launcher.Launch(params)
 	} else {
 		fmt.Println("Claude CLI not found - install Claude CLI to see additional options")
 	}
@@ -308,14 +320,14 @@ func selectEnvironment(ui *ui.TerminalUI, cfg *types.Config) (*types.Environment
 		if description == "" {
 			description = env.BaseURL
 		}
-		
+
 		// Add model information to description if available
 		if env.Model != "" {
 			description = fmt.Sprintf("%s (Model: %s)", description, env.Model)
 		} else {
 			description = fmt.Sprintf("%s (Default model)", description)
 		}
-		
+
 		items = append(items, types.SelectItem{
 			Label:       name,
 			Description: description,

@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cexll/claude-code-env/pkg/types"
 	"github.com/manifoldco/promptui"
-	"github.com/claude-code/env-switcher/pkg/types"
 )
 
 // TerminalUI implements the InteractiveUI interface using promptui
@@ -25,10 +25,10 @@ type UITheme struct {
 // DefaultTheme returns a default color theme
 func DefaultTheme() UITheme {
 	return UITheme{
-		PrimaryColor:   "\033[36m",    // Cyan
-		SecondaryColor: "\033[37m",    // White
-		ErrorColor:     "\033[31m",    // Red
-		SuccessColor:   "\033[32m",    // Green
+		PrimaryColor:   "\033[36m", // Cyan
+		SecondaryColor: "\033[37m", // White
+		ErrorColor:     "\033[31m", // Red
+		SuccessColor:   "\033[32m", // Green
 	}
 }
 
@@ -283,21 +283,21 @@ func (t *TerminalUI) PromptModel(label string, suggestions []string) (string, er
 	// Create validation function that accepts empty input or valid model names
 	validate := func(input string) error {
 		input = strings.TrimSpace(input)
-		
+
 		// Empty input is valid (use default)
 		if input == "" {
 			return nil
 		}
-		
+
 		// Basic format validation
 		if len(input) > 100 {
 			return fmt.Errorf("model name too long (maximum 100 characters)")
 		}
-		
+
 		if strings.ContainsAny(input, "\n\r\t") {
 			return fmt.Errorf("model name cannot contain newlines or tabs")
 		}
-		
+
 		return nil
 	}
 
@@ -338,17 +338,17 @@ func (t *TerminalUI) ShowEnvironmentDetails(env *types.Environment, includeModel
 		fmt.Printf("%sNo environment selected%s\n", t.theme.ErrorColor, "\033[0m")
 		return
 	}
-	
+
 	fmt.Printf("%s=== Environment Details ===%s\n", t.theme.PrimaryColor, "\033[0m")
 	fmt.Printf("Name: %s\n", env.Name)
-	
+
 	if env.Description != "" {
 		fmt.Printf("Description: %s\n", env.Description)
 	}
-	
+
 	fmt.Printf("Base URL: %s\n", env.BaseURL)
 	fmt.Printf("API Key: %s\n", maskAPIKey(env.APIKey))
-	
+
 	if includeModel {
 		if env.Model != "" {
 			fmt.Printf("%sModel: %s%s\n", t.theme.PrimaryColor, env.Model, "\033[0m")
@@ -356,11 +356,11 @@ func (t *TerminalUI) ShowEnvironmentDetails(env *types.Environment, includeModel
 			fmt.Printf("Model: %sDefault (as configured in Claude CLI)%s\n", t.theme.SecondaryColor, "\033[0m")
 		}
 	}
-	
+
 	if len(env.Headers) > 0 {
 		fmt.Printf("Custom Headers: %d configured\n", len(env.Headers))
 	}
-	
+
 	if env.NetworkInfo != nil && env.NetworkInfo.Status != "" {
 		status := env.NetworkInfo.Status
 		if status == "success" {
@@ -369,7 +369,7 @@ func (t *TerminalUI) ShowEnvironmentDetails(env *types.Environment, includeModel
 			fmt.Printf("Network Status: %s%s%s\n", t.theme.ErrorColor, status, "\033[0m")
 		}
 	}
-	
+
 	fmt.Printf("Created: %s\n", env.CreatedAt.Format("2006-01-02 15:04"))
 	fmt.Printf("Updated: %s\n", env.UpdatedAt.Format("2006-01-02 15:04"))
 }

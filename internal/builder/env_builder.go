@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/claude-code/env-switcher/pkg/types"
+	"github.com/cexll/claude-code-env/pkg/types"
 )
 
 // EnvironmentVariableBuilder provides a builder pattern for constructing
@@ -105,7 +105,7 @@ func (evb *EnvironmentVariableBuilder) Build() []string {
 // BuildMap returns environment variables as a map instead of slice
 func (evb *EnvironmentVariableBuilder) BuildMap() map[string]string {
 	result := make(map[string]string)
-	
+
 	// Parse base environment into map
 	for _, env := range evb.baseEnv {
 		if idx := findEqualSign(env); idx > 0 {
@@ -130,7 +130,7 @@ func (evb *EnvironmentVariableBuilder) GetMasked() map[string]string {
 	}
 
 	masked := make(map[string]string)
-	
+
 	for key, value := range evb.variables {
 		switch key {
 		case "ANTHROPIC_API_KEY":
@@ -139,7 +139,7 @@ func (evb *EnvironmentVariableBuilder) GetMasked() map[string]string {
 			masked[key] = value
 		}
 	}
-	
+
 	return masked
 }
 

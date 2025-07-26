@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/claude-code/env-switcher/cmd"
+	"github.com/cexll/claude-code-env/cmd"
 )
 
 func main() {

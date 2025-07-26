@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/claude-code/env-switcher/pkg/types"
+	"github.com/cexll/claude-code-env/pkg/types"
 )
 
 // ModelConfigHandler manages model specifications within environment configurations
@@ -32,7 +32,7 @@ func (m *ModelConfigHandler) ValidateModelName(model string) error {
 
 	// Trim whitespace
 	model = strings.TrimSpace(model)
-	
+
 	// Check basic format requirements
 	if err := m.validateModelFormat(model); err != nil {
 		return &types.ModelConfigError{
@@ -97,12 +97,12 @@ func (m *ModelConfigHandler) GetModelSuggestions() []string {
 	// Return most commonly used models first
 	suggestions := []string{
 		"claude-3-5-sonnet-20241022",
-		"claude-3-5-haiku-20241022", 
+		"claude-3-5-haiku-20241022",
 		"claude-3-opus-20240229",
 		"claude-3-sonnet-20240229",
 		"claude-3-haiku-20240307",
 	}
-	
+
 	return suggestions
 }
 
@@ -178,7 +178,7 @@ func (m *ModelConfigHandler) getSimilarModels(model string) []string {
 	// Look for partial matches in supported models
 	for _, supported := range m.supportedModels {
 		supportedLower := strings.ToLower(supported)
-		
+
 		// Check for common substrings
 		if strings.Contains(supportedLower, "sonnet") && strings.Contains(modelLower, "sonnet") {
 			similar = append(similar, supported)
@@ -246,8 +246,8 @@ func getSupportedModels() []string {
 // getModelPatterns returns regex patterns for validating model names
 func getModelPatterns() []*regexp.Regexp {
 	patterns := []string{
-		`^claude-3(-5)?-(sonnet|haiku|opus)-\d{8}$`,      // Standard Claude 3 and 3.5 pattern
-		`^claude-\d+(-\d+)?-(sonnet|haiku|opus)-\d{8}$`,  // Future Claude versions
+		`^claude-3(-5)?-(sonnet|haiku|opus)-\d{8}$`,     // Standard Claude 3 and 3.5 pattern
+		`^claude-\d+(-\d+)?-(sonnet|haiku|opus)-\d{8}$`, // Future Claude versions
 		`^[a-z0-9]([a-z0-9\-]*[a-z0-9])?$`,              // General valid identifier pattern
 	}
 

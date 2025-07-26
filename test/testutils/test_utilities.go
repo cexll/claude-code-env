@@ -12,20 +12,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cexll/claude-code-env/pkg/types"
 	"github.com/stretchr/testify/require"
-	"github.com/claude-code/env-switcher/pkg/types"
 )
 
 // TestEnvironment provides isolated test environment setup
 type TestEnvironment struct {
-	TempDir        string
-	ConfigDir      string
-	ConfigPath     string
-	BackupPath     string
-	OriginalHome   string
-	MockServer     *httptest.Server
-	cleanup        func()
-	t              *testing.T
+	TempDir      string
+	ConfigDir    string
+	ConfigPath   string
+	BackupPath   string
+	OriginalHome string
+	MockServer   *httptest.Server
+	cleanup      func()
+	t            *testing.T
 }
 
 // SetupTestEnvironment creates a comprehensive test environment
@@ -33,18 +33,18 @@ func SetupTestEnvironment(t *testing.T) *TestEnvironment {
 	// Create temporary directory
 	tempDir, err := os.MkdirTemp("", "cce-test-*")
 	require.NoError(t, err)
-	
+
 	// Set up config directory structure
 	configDir := filepath.Join(tempDir, ".claude-code-env")
 	configPath := filepath.Join(configDir, "config.json")
 	backupPath := configPath + ".backup"
-	
+
 	require.NoError(t, os.MkdirAll(configDir, 0700))
-	
+
 	// Override HOME for isolated testing
 	originalHome := os.Getenv("HOME")
 	os.Setenv("HOME", tempDir)
-	
+
 	// Create mock HTTP server
 	mockServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -64,7 +64,7 @@ func SetupTestEnvironment(t *testing.T) *TestEnvironment {
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
-	
+
 	testEnv := &TestEnvironment{
 		TempDir:      tempDir,
 		ConfigDir:    configDir,
@@ -79,7 +79,7 @@ func SetupTestEnvironment(t *testing.T) *TestEnvironment {
 			os.RemoveAll(tempDir)
 		},
 	}
-	
+
 	return testEnv
 }
 
@@ -148,7 +148,7 @@ func NewMockHTTPServer() *MockHTTPServer {
 		responses: make(map[string]MockResponse),
 		requests:  make([]MockRequest, 0),
 	}
-	
+
 	m.server = httptest.NewTLSServer(http.HandlerFunc(m.handler))
 	return m
 }
@@ -183,7 +183,7 @@ func (m *MockHTTPServer) handler(w http.ResponseWriter, r *http.Request) {
 			headers[k] = v[0]
 		}
 	}
-	
+
 	m.requests = append(m.requests, MockRequest{
 		Method:    r.Method,
 		URL:       r.URL.Path,
@@ -191,23 +191,23 @@ func (m *MockHTTPServer) handler(w http.ResponseWriter, r *http.Request) {
 		Body:      string(body),
 		Timestamp: time.Now(),
 	})
-	
+
 	// Look for matching response
 	response, exists := m.responses[r.URL.Path]
 	if !exists {
 		response = MockResponse{StatusCode: 404, Body: "Not Found"}
 	}
-	
+
 	// Apply delay if specified
 	if response.Delay > 0 {
 		time.Sleep(response.Delay)
 	}
-	
+
 	// Set headers
 	for k, v := range response.Headers {
 		w.Header().Set(k, v)
 	}
-	
+
 	// Write response
 	w.WriteHeader(response.StatusCode)
 	w.Write([]byte(response.Body))
@@ -223,7 +223,7 @@ type FileSystemHelper struct {
 func NewFileSystemHelper(t *testing.T) *FileSystemHelper {
 	tempDir, err := os.MkdirTemp("", "cce-fs-test-*")
 	require.NoError(t, err)
-	
+
 	return &FileSystemHelper{
 		TempDir: tempDir,
 		t:       t,
@@ -278,7 +278,7 @@ type ProcessHelper struct {
 func NewProcessHelper(t *testing.T) *ProcessHelper {
 	tempDir, err := os.MkdirTemp("", "cce-process-test-*")
 	require.NoError(t, err)
-	
+
 	// Create a mock executable
 	execPath := filepath.Join(tempDir, "mock-claude-code")
 	mockScript := `#!/bin/bash
@@ -287,9 +287,9 @@ echo "Arguments: $@"
 echo "Environment variables:"
 env | grep ANTHROPIC_ || true
 exit 0`
-	
+
 	require.NoError(t, os.WriteFile(execPath, []byte(mockScript), 0755))
-	
+
 	return &ProcessHelper{
 		ExecutablePath: execPath,
 		TempDir:        tempDir,
@@ -308,7 +308,7 @@ func (ph *ProcessHelper) CreateFailingExecutable() string {
 	failScript := `#!/bin/bash
 echo "Mock failure" >&2
 exit 1`
-	
+
 	require.NoError(ph.t, os.WriteFile(execPath, []byte(failScript), 0755))
 	return execPath
 }
@@ -320,7 +320,7 @@ func (ph *ProcessHelper) CreateSlowExecutable(delay time.Duration) string {
 sleep %.0f
 echo "Slow execution complete"
 exit 0`, delay.Seconds())
-	
+
 	require.NoError(ph.t, os.WriteFile(execPath, []byte(slowScript), 0755))
 	return execPath
 }
@@ -350,7 +350,7 @@ func (ph *PerformanceHelper) MeasureOperation(name string, operation func()) {
 	start := time.Now()
 	operation()
 	duration := time.Since(start)
-	
+
 	ph.measurements = append(ph.measurements, PerformanceMeasurement{
 		Name:      name,
 		Duration:  duration,
@@ -367,18 +367,18 @@ func (ph *PerformanceHelper) GetMeasurements() []PerformanceMeasurement {
 func (ph *PerformanceHelper) GetAverageDuration(name string) time.Duration {
 	var total time.Duration
 	var count int
-	
+
 	for _, m := range ph.measurements {
 		if m.Name == name {
 			total += m.Duration
 			count++
 		}
 	}
-	
+
 	if count == 0 {
 		return 0
 	}
-	
+
 	return total / time.Duration(count)
 }
 
@@ -396,16 +396,16 @@ func NewSecurityTestHelper(t *testing.T) *SecurityTestHelper {
 func (sth *SecurityTestHelper) ValidateFilePermissions(path string, expectedMode os.FileMode) {
 	info, err := os.Stat(path)
 	require.NoError(sth.t, err)
-	
+
 	actualMode := info.Mode().Perm()
-	require.Equal(sth.t, expectedMode, actualMode, 
+	require.Equal(sth.t, expectedMode, actualMode,
 		"File %s has permissions %o, expected %o", path, actualMode, expectedMode)
 }
 
 // ValidateNoSensitiveDataInLogs ensures no sensitive data appears in output
 func (sth *SecurityTestHelper) ValidateNoSensitiveDataInLogs(output string, sensitiveData []string) {
 	for _, data := range sensitiveData {
-		require.NotContains(sth.t, output, data, 
+		require.NotContains(sth.t, output, data,
 			"Sensitive data '%s' found in output", data)
 	}
 }
@@ -414,10 +414,10 @@ func (sth *SecurityTestHelper) ValidateNoSensitiveDataInLogs(output string, sens
 func (sth *SecurityTestHelper) ValidateAPIKeyMasking(maskedKey, originalKey string) {
 	require.NotEqual(sth.t, originalKey, maskedKey, "API key not masked")
 	require.Contains(sth.t, maskedKey, "***", "API key mask format incorrect")
-	
+
 	if len(originalKey) >= 4 {
 		expectedSuffix := originalKey[len(originalKey)-4:]
-		require.Contains(sth.t, maskedKey, expectedSuffix, 
+		require.Contains(sth.t, maskedKey, expectedSuffix,
 			"API key mask should show last 4 characters")
 	}
 }
@@ -436,23 +436,23 @@ func NewConcurrencyTestHelper(t *testing.T) *ConcurrencyTestHelper {
 func (cth *ConcurrencyTestHelper) RunConcurrentOperations(operations []func() error, maxGoroutines int) []error {
 	resultChan := make(chan error, len(operations))
 	semaphore := make(chan struct{}, maxGoroutines)
-	
+
 	// Start operations
 	for _, op := range operations {
 		go func(operation func() error) {
-			semaphore <- struct{}{} // Acquire semaphore
+			semaphore <- struct{}{}        // Acquire semaphore
 			defer func() { <-semaphore }() // Release semaphore
-			
+
 			resultChan <- operation()
 		}(op)
 	}
-	
+
 	// Collect results
 	results := make([]error, 0, len(operations))
 	for i := 0; i < len(operations); i++ {
 		results = append(results, <-resultChan)
 	}
-	
+
 	return results
 }
 
@@ -488,24 +488,24 @@ func (tdg *TestDataGenerator) GenerateEnvironment(name string, baseURL string) *
 // GenerateConfig creates a test configuration with specified environments
 func (tdg *TestDataGenerator) GenerateConfig(environmentNames []string) *types.Config {
 	environments := make(map[string]types.Environment)
-	
+
 	for _, name := range environmentNames {
 		env := tdg.GenerateEnvironment(name, fmt.Sprintf("https://%s.api.test.com/v1", name))
 		environments[name] = *env
 	}
-	
+
 	config := &types.Config{
 		Version:      "1.0.0",
 		Environments: environments,
 		CreatedAt:    time.Now().Add(-24 * time.Hour),
 		UpdatedAt:    time.Now(),
 	}
-	
+
 	// Set first environment as default
 	if len(environmentNames) > 0 {
 		config.DefaultEnv = environmentNames[0]
 	}
-	
+
 	return config
 }
 

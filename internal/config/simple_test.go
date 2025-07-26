@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/claude-code/env-switcher/pkg/types"
+	"github.com/cexll/claude-code-env/pkg/types"
 )
 
 func TestConfigManager_BasicFunctionality(t *testing.T) {
@@ -16,7 +16,7 @@ func TestConfigManager_BasicFunctionality(t *testing.T) {
 	manager, err := NewFileConfigManager()
 	require.NoError(t, err)
 	assert.NotNil(t, manager)
-	
+
 	configPath := manager.GetConfigPath()
 	assert.NotEmpty(t, configPath)
 	assert.Contains(t, configPath, ".claude-code-env")
@@ -27,19 +27,19 @@ func TestConfigManager_EmptyLoad(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "cce-test-*")
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
-	
+
 	// Override HOME for testing
 	originalHome := os.Getenv("HOME")
 	os.Setenv("HOME", tempDir)
 	defer os.Setenv("HOME", originalHome)
-	
+
 	manager, err := NewFileConfigManager()
 	require.NoError(t, err)
-	
+
 	// Test loading empty config
 	config, err := manager.Load()
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, "1.0.0", config.Version)
 	assert.Empty(t, config.Environments)
 	assert.NotZero(t, config.CreatedAt)
@@ -51,15 +51,15 @@ func TestConfigManager_SaveLoad(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "cce-test-*")
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
-	
+
 	// Override HOME for testing
 	originalHome := os.Getenv("HOME")
 	os.Setenv("HOME", tempDir)
 	defer os.Setenv("HOME", originalHome)
-	
+
 	manager, err := NewFileConfigManager()
 	require.NoError(t, err)
-	
+
 	// Create test config
 	testConfig := &types.Config{
 		Version:    "1.0.0",
@@ -72,19 +72,19 @@ func TestConfigManager_SaveLoad(t *testing.T) {
 			},
 		},
 	}
-	
+
 	// Test save
 	err = manager.Save(testConfig)
 	require.NoError(t, err)
-	
+
 	// Test load
 	loadedConfig, err := manager.Load()
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, testConfig.Version, loadedConfig.Version)
 	assert.Equal(t, testConfig.DefaultEnv, loadedConfig.DefaultEnv)
 	assert.Len(t, loadedConfig.Environments, 1)
-	
+
 	testEnv := loadedConfig.Environments["test"]
 	assert.Equal(t, "test", testEnv.Name)
 	assert.Equal(t, "https://api.test.com/v1", testEnv.BaseURL)
@@ -94,7 +94,7 @@ func TestConfigManager_SaveLoad(t *testing.T) {
 func TestConfigManager_Validation(t *testing.T) {
 	manager, err := NewFileConfigManager()
 	require.NoError(t, err)
-	
+
 	testCases := []struct {
 		name        string
 		config      *types.Config
@@ -142,7 +142,7 @@ func TestConfigManager_Validation(t *testing.T) {
 			expectError: false,
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := manager.Validate(tc.config)

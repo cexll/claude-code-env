@@ -11,14 +11,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/claude-code/env-switcher/pkg/types"
+	"github.com/cexll/claude-code-env/pkg/types"
 )
 
 // FileConfigManager implements the ConfigManager interface using the file system
 type FileConfigManager struct {
 	configPath       string
-	modelHandler     *ModelConfigHandler     // NEW: Model configuration support
-	migrationManager *MigrationManager       // NEW: Migration support
+	modelHandler     *ModelConfigHandler // NEW: Model configuration support
+	migrationManager *MigrationManager   // NEW: Migration support
 }
 
 // NewFileConfigManager creates a new FileConfigManager instance
@@ -77,12 +77,12 @@ func (f *FileConfigManager) Load() (*types.Config, error) {
 		if err != nil {
 			return nil, fmt.Errorf("configuration migration failed: %w", err)
 		}
-		
+
 		// Save the migrated configuration
 		if err := f.Save(migratedConfig); err != nil {
 			return nil, fmt.Errorf("failed to save migrated configuration: %w", err)
 		}
-		
+
 		config = *migratedConfig
 	}
 
@@ -344,7 +344,7 @@ func (f *FileConfigManager) configExists() bool {
 // ensureConfigDir creates the configuration directory with proper permissions
 func (f *FileConfigManager) ensureConfigDir() error {
 	configDir := filepath.Dir(f.configPath)
-	
+
 	// Check if directory exists
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
 		// Create directory with 700 permissions
@@ -397,7 +397,7 @@ func getConfigPath() (string, error) {
 
 	configDir := filepath.Join(homeDir, ".claude-code-env")
 	configFile := filepath.Join(configDir, "config.json")
-	
+
 	return configFile, nil
 }
 

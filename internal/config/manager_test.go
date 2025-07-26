@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cexll/claude-code-env/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/claude-code/env-switcher/pkg/types"
 )
 
 func TestFileConfigManager_Save_Load(t *testing.T) {
@@ -19,7 +19,9 @@ func TestFileConfigManager_Save_Load(t *testing.T) {
 
 	// Create config manager with custom path
 	manager := &FileConfigManager{
-		configPath: filepath.Join(tempDir, "config.json"),
+		configPath:       filepath.Join(tempDir, "config.json"),
+		modelHandler:     NewModelConfigHandler(),
+		migrationManager: NewMigrationManager(filepath.Join(tempDir, "config.json")),
 	}
 
 	// Create test configuration

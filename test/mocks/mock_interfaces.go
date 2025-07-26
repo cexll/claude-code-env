@@ -2,8 +2,9 @@
 package mocks
 
 import (
+	"github.com/cexll/claude-code-env/internal/validation"
+	"github.com/cexll/claude-code-env/pkg/types"
 	"time"
-	"github.com/claude-code/env-switcher/pkg/types"
 )
 
 // MockConfigManager provides a mock implementation of ConfigManager for testing
@@ -14,7 +15,7 @@ type MockConfigManager struct {
 	BackupFunc                      func() error
 	GetConfigPathFunc               func() string
 	ValidateNetworkConnectivityFunc func(*types.Environment) error
-	
+
 	// Test data storage
 	StoredConfig *types.Config
 	CallLog      []string
@@ -89,7 +90,7 @@ type MockNetworkValidator struct {
 	ValidateEndpointWithTimeoutFunc func(string, time.Duration) (*types.NetworkValidationResult, error)
 	TestAPIConnectivityFunc         func(*types.Environment) error
 	ClearCacheFunc                  func()
-	
+
 	CallLog []string
 	Results map[string]*types.NetworkValidationResult
 }
@@ -144,15 +145,15 @@ func (m *MockNetworkValidator) ClearCache() {
 
 // MockInteractiveUI provides a mock implementation of InteractiveUI for testing
 type MockInteractiveUI struct {
-	SelectFunc     func(string, []types.SelectItem) (int, string, error)
-	PromptFunc     func(string, func(string) error) (string, error)
+	SelectFunc         func(string, []types.SelectItem) (int, string, error)
+	PromptFunc         func(string, func(string) error) (string, error)
 	PromptPasswordFunc func(string, func(string) error) (string, error)
-	ConfirmFunc    func(string) (bool, error)
-	MultiInputFunc func([]types.InputField) (map[string]string, error)
-	
-	CallLog     []string
-	Responses   map[string]interface{}
-	CallCount   int
+	ConfirmFunc        func(string) (bool, error)
+	MultiInputFunc     func([]types.InputField) (map[string]string, error)
+
+	CallLog   []string
+	Responses map[string]interface{}
+	CallCount int
 }
 
 func NewMockInteractiveUI() *MockInteractiveUI {
@@ -212,6 +213,23 @@ func (m *MockInteractiveUI) Confirm(label string) (bool, error) {
 	return true, nil
 }
 
+func (m *MockInteractiveUI) PromptModel(label string, suggestions []string) (string, error) {
+	m.CallLog = append(m.CallLog, "PromptModel:"+label)
+	m.CallCount++
+	if response, exists := m.Responses["model"]; exists {
+		return response.(string), nil
+	}
+	if len(suggestions) > 0 {
+		return suggestions[0], nil
+	}
+	return "claude-3-5-sonnet-20241022", nil
+}
+
+func (m *MockInteractiveUI) ShowEnvironmentDetails(env *types.Environment, includeModel bool) {
+	m.CallLog = append(m.CallLog, "ShowEnvironmentDetails:"+env.Name)
+	// This is a display method, no return value needed
+}
+
 func (m *MockInteractiveUI) MultiInput(fields []types.InputField) (map[string]string, error) {
 	m.CallLog = append(m.CallLog, "MultiInput")
 	m.CallCount++
@@ -221,7 +239,7 @@ func (m *MockInteractiveUI) MultiInput(fields []types.InputField) (map[string]st
 	if response, exists := m.Responses["multiinput"]; exists {
 		return response.(map[string]string), nil
 	}
-	
+
 	// Default mock responses
 	results := make(map[string]string)
 	for _, field := range fields {
@@ -232,6 +250,8 @@ func (m *MockInteractiveUI) MultiInput(fields []types.InputField) (map[string]st
 			results[field.Name] = "https://mock.api.com/v1"
 		case "api_key":
 			results[field.Name] = "mock-api-key-12345"
+		case "model":
+			results[field.Name] = "claude-3-5-sonnet-20241022"
 		default:
 			results[field.Name] = "mock-" + field.Name
 		}
@@ -241,13 +261,22 @@ func (m *MockInteractiveUI) MultiInput(fields []types.InputField) (map[string]st
 
 // MockClaudeCodeLauncher provides a mock implementation of ClaudeCodeLauncher for testing
 type MockClaudeCodeLauncher struct {
-	LaunchFunc           func(*types.Environment, []string) error
+	// Legacy interface methods
+	LaunchFunc             func(*types.Environment, []string) error
 	ValidateClaudeCodeFunc func() error
 	GetClaudeCodePathFunc  func() (string, error)
-	
-	CallLog       []string
-	LaunchCalls   []LaunchCall
-	ClaudeCodePath string
+
+	// New unified interface methods
+	LaunchWithParametersFunc func(*types.LaunchParameters) error
+	LaunchWithDelegationFunc func(types.DelegationPlan) error
+	SetPassthroughModeFunc   func(bool)
+	GetMetricsFunc           func() *types.LauncherMetrics
+
+	CallLog         []string
+	LaunchCalls     []LaunchCall
+	ClaudeCodePath  string
+	PassthroughMode bool
+	Metrics         *types.LauncherMetrics
 }
 
 type LaunchCall struct {
@@ -261,9 +290,13 @@ func NewMockClaudeCodeLauncher() *MockClaudeCodeLauncher {
 		CallLog:        make([]string, 0),
 		LaunchCalls:    make([]LaunchCall, 0),
 		ClaudeCodePath: "/usr/local/bin/claude-code",
+		Metrics: &types.LauncherMetrics{
+			EnvironmentMetrics: make(map[string]*types.EnvironmentMetrics),
+		},
 	}
 }
 
+// Legacy interface methods
 func (m *MockClaudeCodeLauncher) Launch(env *types.Environment, args []string) error {
 	m.CallLog = append(m.CallLog, "Launch")
 	m.LaunchCalls = append(m.LaunchCalls, LaunchCall{
@@ -275,6 +308,50 @@ func (m *MockClaudeCodeLauncher) Launch(env *types.Environment, args []string) e
 		return m.LaunchFunc(env, args)
 	}
 	return nil
+}
+
+// New unified interface methods
+func (m *MockClaudeCodeLauncher) LaunchLegacy(env *types.Environment, args []string) error {
+	return m.Launch(env, args)
+}
+
+func (m *MockClaudeCodeLauncher) LaunchWithParameters(params *types.LaunchParameters) error {
+	m.CallLog = append(m.CallLog, "LaunchWithParameters")
+	if params != nil && params.Environment != nil {
+		m.LaunchCalls = append(m.LaunchCalls, LaunchCall{
+			Environment: params.Environment,
+			Args:        params.Arguments,
+			Timestamp:   time.Now(),
+		})
+	}
+	if m.LaunchWithParametersFunc != nil {
+		return m.LaunchWithParametersFunc(params)
+	}
+	return nil
+}
+
+func (m *MockClaudeCodeLauncher) LaunchWithDelegation(plan types.DelegationPlan) error {
+	m.CallLog = append(m.CallLog, "LaunchWithDelegation")
+	if m.LaunchWithDelegationFunc != nil {
+		return m.LaunchWithDelegationFunc(plan)
+	}
+	return nil
+}
+
+func (m *MockClaudeCodeLauncher) SetPassthroughMode(enabled bool) {
+	m.CallLog = append(m.CallLog, "SetPassthroughMode")
+	m.PassthroughMode = enabled
+	if m.SetPassthroughModeFunc != nil {
+		m.SetPassthroughModeFunc(enabled)
+	}
+}
+
+func (m *MockClaudeCodeLauncher) GetMetrics() *types.LauncherMetrics {
+	m.CallLog = append(m.CallLog, "GetMetrics")
+	if m.GetMetricsFunc != nil {
+		return m.GetMetricsFunc()
+	}
+	return m.Metrics
 }
 
 func (m *MockClaudeCodeLauncher) ValidateClaudeCode() error {
@@ -357,4 +434,89 @@ func (h *TestHelper) CreateTestError(errorType interface{}, message string) erro
 	default:
 		return &types.ConfigError{Type: types.ConfigValidationFailed, Message: message}
 	}
+}
+
+// MockModelValidator provides a mock implementation of ModelValidator for testing
+type MockModelValidator struct {
+	ValidateModelNameFunc     func(string) (*validation.ModelValidationResult, error)
+	ValidateModelWithAPIFunc  func(*types.Environment, string) (*validation.ModelValidationResult, error)
+	GetSuggestedModelsFunc    func(string) ([]string, error)
+	CacheValidationResultFunc func(string, *validation.ModelValidationResult)
+	ClearCacheFunc            func()
+
+	CallLog   []string
+	CacheSize int
+	Results   map[string]*validation.ModelValidationResult
+}
+
+func NewMockModelValidator() *MockModelValidator {
+	return &MockModelValidator{
+		CallLog: make([]string, 0),
+		Results: make(map[string]*validation.ModelValidationResult),
+	}
+}
+
+func (m *MockModelValidator) ValidateModelName(model string) (*validation.ModelValidationResult, error) {
+	m.CallLog = append(m.CallLog, "ValidateModelName:"+model)
+	if m.ValidateModelNameFunc != nil {
+		return m.ValidateModelNameFunc(model)
+	}
+	if result, exists := m.Results[model]; exists {
+		return result, nil
+	}
+	return &validation.ModelValidationResult{
+		Valid:         true,
+		Model:         model,
+		APICompatible: true,
+		ValidatedAt:   time.Now(),
+	}, nil
+}
+
+func (m *MockModelValidator) ValidateModelWithAPI(env *types.Environment, model string) (*validation.ModelValidationResult, error) {
+	key := env.BaseURL + ":" + model
+	m.CallLog = append(m.CallLog, "ValidateModelWithAPI:"+key)
+	if m.ValidateModelWithAPIFunc != nil {
+		return m.ValidateModelWithAPIFunc(env, model)
+	}
+	if result, exists := m.Results[key]; exists {
+		return result, nil
+	}
+	return &validation.ModelValidationResult{
+		Valid:         true,
+		Model:         model,
+		APICompatible: true,
+		ValidatedAt:   time.Now(),
+	}, nil
+}
+
+func (m *MockModelValidator) GetSuggestedModels(apiType string) ([]string, error) {
+	m.CallLog = append(m.CallLog, "GetSuggestedModels:"+apiType)
+	if m.GetSuggestedModelsFunc != nil {
+		return m.GetSuggestedModelsFunc(apiType)
+	}
+	return []string{
+		"claude-3-5-sonnet-20241022",
+		"claude-3-5-haiku-20241022",
+		"claude-3-opus-20240229",
+	}, nil
+}
+
+func (m *MockModelValidator) CacheValidationResult(key string, result *validation.ModelValidationResult) {
+	m.CallLog = append(m.CallLog, "CacheValidationResult:"+key)
+	if m.CacheValidationResultFunc != nil {
+		m.CacheValidationResultFunc(key, result)
+		return
+	}
+	m.Results[key] = result
+	m.CacheSize++
+}
+
+func (m *MockModelValidator) ClearCache() {
+	m.CallLog = append(m.CallLog, "ClearCache")
+	if m.ClearCacheFunc != nil {
+		m.ClearCacheFunc()
+		return
+	}
+	m.Results = make(map[string]*validation.ModelValidationResult)
+	m.CacheSize = 0
 }

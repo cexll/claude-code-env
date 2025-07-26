@@ -20,12 +20,12 @@ func NewArgumentAnalyzer(registry *FlagRegistry) *ArgumentAnalyzer {
 
 // ArgumentAnalysis contains the results of analyzing command-line arguments
 type ArgumentAnalysis struct {
-	HasCCEFlags      bool
-	HasClaudeFlags   bool
+	HasCCEFlags         bool
+	HasClaudeFlags      bool
 	RequiresPassthrough bool
-	EnvironmentHints []string
-	IsHelpRequested  bool
-	IsVersionRequested bool
+	EnvironmentHints    []string
+	IsHelpRequested     bool
+	IsVersionRequested  bool
 }
 
 // FlagClassification categorizes flags into CCE and Claude CLI flags
@@ -88,7 +88,7 @@ func (a *ArgumentAnalyzer) AnalyzeArguments(args []string) (*ArgumentAnalysis, e
 	}
 
 	// Determine if pass-through is required
-	analysis.RequiresPassthrough = analysis.HasClaudeFlags || 
+	analysis.RequiresPassthrough = analysis.HasClaudeFlags ||
 		(!analysis.HasCCEFlags && !analysis.IsHelpRequested && !analysis.IsVersionRequested && len(args) > 0)
 
 	return analysis, nil
@@ -106,7 +106,7 @@ func (a *ArgumentAnalyzer) ClassifyFlags(args []string) (*FlagClassification, er
 	i := 0
 	for i < len(args) {
 		arg := args[i]
-		
+
 		// Skip non-flag arguments
 		if !strings.HasPrefix(arg, "-") {
 			i++
@@ -114,20 +114,18 @@ func (a *ArgumentAnalyzer) ClassifyFlags(args []string) (*FlagClassification, er
 		}
 
 		// Parse flag and potential value
-		var flag, value string
+		var flag string
 		var hasValue bool
 
 		if strings.Contains(arg, "=") {
 			// Format: --flag=value
 			parts := strings.SplitN(arg, "=", 2)
 			flag = parts[0]
-			value = parts[1]
 			hasValue = true
 		} else {
 			flag = arg
 			// Check if next argument is a value (not starting with -)
 			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
-				value = args[i+1]
 				hasValue = true
 				i++ // Skip the value argument
 			}
@@ -243,16 +241,16 @@ func (a *ArgumentAnalyzer) ExtractCCEFlags(args []string) (*CCEFlags, []string, 
 // extractEnvironmentHints looks for environment-related hints in arguments
 func (a *ArgumentAnalyzer) extractEnvironmentHints(args []string) []string {
 	var hints []string
-	
+
 	// Look for patterns that might indicate environment preferences
 	envPattern := regexp.MustCompile(`(?i)(prod|production|staging|dev|development|test|local)`)
-	
+
 	for _, arg := range args {
 		if matches := envPattern.FindAllString(arg, -1); len(matches) > 0 {
 			hints = append(hints, matches...)
 		}
 	}
-	
+
 	return hints
 }
 
@@ -286,7 +284,7 @@ func (a *ArgumentAnalyzer) resolveConflict(flag string) ConflictResolution {
 // PreserveArgumentStructure ensures complex arguments are preserved correctly
 func (a *ArgumentAnalyzer) PreserveArgumentStructure(args []string) []string {
 	preserved := make([]string, len(args))
-	
+
 	for i, arg := range args {
 		// Preserve quotes and escape sequences
 		if a.needsQuoting(arg) {
@@ -295,14 +293,14 @@ func (a *ArgumentAnalyzer) PreserveArgumentStructure(args []string) []string {
 			preserved[i] = arg
 		}
 	}
-	
+
 	return preserved
 }
 
 // needsQuoting determines if an argument needs quoting
 func (a *ArgumentAnalyzer) needsQuoting(arg string) bool {
 	// Check for spaces, special characters, or existing quotes
-	specialChars := regexp.MustCompile(`[\s"'\\$`+"`"+`|&;(){}[\]*?<>~]`)
+	specialChars := regexp.MustCompile(`[\s"'\\$` + "`" + `|&;(){}[\]*?<>~]`)
 	return specialChars.MatchString(arg)
 }
 

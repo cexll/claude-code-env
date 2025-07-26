@@ -27,21 +27,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/claude-code/env-switcher/internal/config"
-	"github.com/claude-code/env-switcher/internal/launcher"
-	"github.com/claude-code/env-switcher/internal/ui"
-	"github.com/claude-code/env-switcher/pkg/types"
+	"github.com/cexll/claude-code-env/internal/config"
+	"github.com/cexll/claude-code-env/internal/launcher"
+	"github.com/cexll/claude-code-env/internal/ui"
+	"github.com/cexll/claude-code-env/pkg/types"
 )
 
 // TestEnvironment provides isolated test environment setup and cleanup.
 type TestEnvironment struct {
-	TempDir         string
-	ConfigPath      string
-	OriginalHome    string
-	Manager         *config.FileConfigManager
-	UI              *ui.TerminalUI
-	Launcher        *launcher.SystemLauncher
-	cleanup         func()
+	TempDir      string
+	ConfigPath   string
+	OriginalHome string
+	Manager      *config.FileConfigManager
+	UI           *ui.TerminalUI
+	Launcher     *launcher.SystemLauncher
+	cleanup      func()
 }
 
 // SetupTestEnvironment creates an isolated test environment with temporary directories.
@@ -183,11 +183,11 @@ func TestCompleteEnvironmentManagementWorkflow(t *testing.T) {
 		// Verify environment was saved correctly
 		reloadedCfg, err := testEnv.Manager.Load()
 		require.NoError(t, err)
-		
+
 		assert.Len(t, reloadedCfg.Environments, 1)
 		assert.Contains(t, reloadedCfg.Environments, "test-env")
 		assert.Equal(t, "test-env", reloadedCfg.DefaultEnv)
-		
+
 		savedEnv := reloadedCfg.Environments["test-env"]
 		assert.Equal(t, env.Name, savedEnv.Name)
 		assert.Equal(t, env.Description, savedEnv.Description)
@@ -321,7 +321,7 @@ func TestCompleteEnvironmentManagementWorkflow(t *testing.T) {
 
 		// Remove one environment
 		delete(cfg.Environments, "remove-me")
-		
+
 		// Update default if it was the removed environment
 		if cfg.DefaultEnv == "remove-me" {
 			cfg.DefaultEnv = "keep-me"
@@ -362,13 +362,21 @@ func TestClaudeCodeIntegrationWorkflow(t *testing.T) {
 		}
 
 		// Test launching Claude Code with environment
-		err := testEnv.Launcher.Launch(&env, []string{"--version"})
+		params := &types.LaunchParameters{
+			Environment: &env,
+			Arguments:   []string{"--version"},
+		}
+		err := testEnv.Launcher.Launch(params)
 		require.NoError(t, err)
 	})
 
 	t.Run("LaunchWithoutEnvironment", func(t *testing.T) {
 		// Test launching Claude Code without environment (should work)
-		err := testEnv.Launcher.Launch(nil, []string{"--version"})
+		params := &types.LaunchParameters{
+			Environment: nil,
+			Arguments:   []string{"--version"},
+		}
+		err := testEnv.Launcher.Launch(params)
 		require.NoError(t, err)
 	})
 
@@ -377,7 +385,7 @@ func TestClaudeCodeIntegrationWorkflow(t *testing.T) {
 		path, err := testEnv.Launcher.GetClaudeCodePath()
 		require.NoError(t, err)
 		assert.NotEmpty(t, path)
-		
+
 		// Test validation
 		err = testEnv.Launcher.ValidateClaudeCode()
 		require.NoError(t, err)
@@ -402,7 +410,7 @@ func TestErrorHandlingWorkflows(t *testing.T) {
 
 		_, err = testEnv.Manager.Load()
 		require.Error(t, err)
-		
+
 		var configErr *types.ConfigError
 		assert.ErrorAs(t, err, &configErr)
 		assert.Equal(t, types.ConfigCorrupted, configErr.Type)
@@ -430,7 +438,7 @@ func TestErrorHandlingWorkflows(t *testing.T) {
 
 		err := testEnv.Manager.Validate(invalidConfig)
 		require.Error(t, err)
-		
+
 		var configErr *types.ConfigError
 		assert.ErrorAs(t, err, &configErr)
 		assert.Equal(t, types.ConfigValidationFailed, configErr.Type)
@@ -469,7 +477,7 @@ func TestNetworkValidationIntegration(t *testing.T) {
 
 		err := testEnv.Manager.ValidateNetworkConnectivity(env)
 		require.Error(t, err)
-		
+
 		var configErr *types.ConfigError
 		assert.ErrorAs(t, err, &configErr)
 		assert.Equal(t, types.ConfigNetworkValidationFailed, configErr.Type)
@@ -479,7 +487,7 @@ func TestNetworkValidationIntegration(t *testing.T) {
 		// Test network validation with nil environment
 		err := testEnv.Manager.ValidateNetworkConnectivity(nil)
 		require.Error(t, err)
-		
+
 		var configErr *types.ConfigError
 		assert.ErrorAs(t, err, &configErr)
 		assert.Equal(t, types.ConfigValidationFailed, configErr.Type)
@@ -534,16 +542,16 @@ func TestConfigurationPersistence(t *testing.T) {
 		assert.Equal(t, originalConfig.Version, loadedConfig.Version)
 		assert.Equal(t, originalConfig.DefaultEnv, loadedConfig.DefaultEnv)
 		assert.Len(t, loadedConfig.Environments, 1)
-		
+
 		loadedEnv := loadedConfig.Environments["test"]
 		originalEnv := originalConfig.Environments["test"]
-		
+
 		assert.Equal(t, originalEnv.Name, loadedEnv.Name)
 		assert.Equal(t, originalEnv.Description, loadedEnv.Description)
 		assert.Equal(t, originalEnv.BaseURL, loadedEnv.BaseURL)
 		assert.Equal(t, originalEnv.APIKey, loadedEnv.APIKey)
 		assert.Equal(t, originalEnv.Headers, loadedEnv.Headers)
-		
+
 		// Verify NetworkInfo is preserved
 		require.NotNil(t, loadedEnv.NetworkInfo)
 		assert.Equal(t, originalEnv.NetworkInfo.Status, loadedEnv.NetworkInfo.Status)

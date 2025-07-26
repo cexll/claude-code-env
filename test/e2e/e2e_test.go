@@ -2,7 +2,6 @@
 package e2e
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,37 +11,37 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/claude-code/env-switcher/internal/config"
-	"github.com/claude-code/env-switcher/internal/launcher"
-	"github.com/claude-code/env-switcher/internal/network"
-	"github.com/claude-code/env-switcher/internal/ui"
-	"github.com/claude-code/env-switcher/pkg/types"
-	"github.com/claude-code/env-switcher/test/mocks"
-	"github.com/claude-code/env-switcher/test/testutils"
+	"github.com/cexll/claude-code-env/internal/config"
+	"github.com/cexll/claude-code-env/internal/launcher"
+	"github.com/cexll/claude-code-env/internal/network"
+	"github.com/cexll/claude-code-env/internal/ui"
+	"github.com/cexll/claude-code-env/pkg/types"
+	"github.com/cexll/claude-code-env/test/mocks"
+	"github.com/cexll/claude-code-env/test/testutils"
 )
 
 // E2ETestSuite provides a complete end-to-end testing environment
 type E2ETestSuite struct {
-	TestEnv       *testutils.TestEnvironment
-	ConfigManager *config.FileConfigManager
+	TestEnv          *testutils.TestEnvironment
+	ConfigManager    *config.FileConfigManager
 	NetworkValidator *network.Validator
-	UI            *ui.TerminalUI
-	Launcher      *launcher.SystemLauncher
-	MockServer    *testutils.MockHTTPServer
-	ProcessHelper *testutils.ProcessHelper
+	UI               *ui.TerminalUI
+	Launcher         *launcher.SystemLauncher
+	MockServer       *testutils.MockHTTPServer
+	ProcessHelper    *testutils.ProcessHelper
 }
 
 // SetupE2ETestSuite initializes a complete testing environment
 func SetupE2ETestSuite(t *testing.T) *E2ETestSuite {
 	testEnv := testutils.SetupTestEnvironment(t)
-	
+
 	configManager, err := config.NewFileConfigManager()
 	require.NoError(t, err)
-	
+
 	networkValidator := network.NewValidator()
 	ui := ui.NewTerminalUI()
 	launcher := launcher.NewSystemLauncher()
-	
+
 	// Set up mock HTTP server
 	mockServer := testutils.NewMockHTTPServer()
 	mockServer.AddResponse("/v1/health", testutils.MockResponse{
@@ -54,11 +53,11 @@ func SetupE2ETestSuite(t *testing.T) *E2ETestSuite {
 		StatusCode: 200,
 		Body:       `{"authenticated": true, "user": "test"}`,
 	})
-	
+
 	// Set up process helper for launcher tests
 	processHelper := testutils.NewProcessHelper(t)
 	launcher.SetClaudeCodePath(processHelper.ExecutablePath)
-	
+
 	return &E2ETestSuite{
 		TestEnv:          testEnv,
 		ConfigManager:    configManager,
@@ -86,13 +85,13 @@ func (suite *E2ETestSuite) Cleanup() {
 func TestE2E_CompleteEnvironmentManagementWorkflow(t *testing.T) {
 	suite := SetupE2ETestSuite(t)
 	defer suite.Cleanup()
-	
+
 	t.Run("complete_workflow", func(t *testing.T) {
 		// Step 1: Start with empty configuration
 		config, err := suite.ConfigManager.Load()
 		require.NoError(t, err)
 		assert.Empty(t, config.Environments)
-		
+
 		// Step 2: Add first environment
 		devEnv := types.Environment{
 			Name:        "development",
@@ -109,28 +108,28 @@ func TestE2E_CompleteEnvironmentManagementWorkflow(t *testing.T) {
 				Status: "unchecked",
 			},
 		}
-		
+
 		config.Environments = map[string]types.Environment{
 			"development": devEnv,
 		}
 		config.DefaultEnv = "development"
-		
+
 		err = suite.ConfigManager.Save(config)
 		require.NoError(t, err)
-		
+
 		// Step 3: Verify environment was saved correctly
 		reloadedConfig, err := suite.ConfigManager.Load()
 		require.NoError(t, err)
 		assert.Len(t, reloadedConfig.Environments, 1)
 		assert.Equal(t, "development", reloadedConfig.DefaultEnv)
-		
+
 		savedEnv := reloadedConfig.Environments["development"]
 		assert.Equal(t, devEnv.Name, savedEnv.Name)
 		assert.Equal(t, devEnv.Description, savedEnv.Description)
 		assert.Equal(t, devEnv.BaseURL, savedEnv.BaseURL)
 		assert.Equal(t, devEnv.APIKey, savedEnv.APIKey)
 		assert.Equal(t, devEnv.Headers, savedEnv.Headers)
-		
+
 		// Step 4: Add second environment
 		prodEnv := types.Environment{
 			Name:        "production",
@@ -147,11 +146,11 @@ func TestE2E_CompleteEnvironmentManagementWorkflow(t *testing.T) {
 				Status: "unchecked",
 			},
 		}
-		
+
 		reloadedConfig.Environments["production"] = prodEnv
 		err = suite.ConfigManager.Save(reloadedConfig)
 		require.NoError(t, err)
-		
+
 		// Step 5: Validate network connectivity for both environments
 		for name, env := range reloadedConfig.Environments {
 			t.Run("network_validation_"+name, func(t *testing.T) {
@@ -161,7 +160,7 @@ func TestE2E_CompleteEnvironmentManagementWorkflow(t *testing.T) {
 				assert.Equal(t, 200, result.StatusCode)
 			})
 		}
-		
+
 		// Step 6: Test API connectivity
 		for name, env := range reloadedConfig.Environments {
 			t.Run("api_connectivity_"+name, func(t *testing.T) {
@@ -169,47 +168,51 @@ func TestE2E_CompleteEnvironmentManagementWorkflow(t *testing.T) {
 				require.NoError(t, err, "API connectivity should work for %s", name)
 			})
 		}
-		
+
 		// Step 7: Test launcher with each environment
 		for name, env := range reloadedConfig.Environments {
 			t.Run("launcher_test_"+name, func(t *testing.T) {
-				err := suite.Launcher.Launch(&env, []string{"--version"})
+				params := &types.LaunchParameters{
+					Environment: &env,
+					Arguments:   []string{"--version"},
+				}
+				err := suite.Launcher.Launch(params)
 				require.NoError(t, err, "Launcher should work with %s environment", name)
 			})
 		}
-		
+
 		// Step 8: Update an environment
 		updatedDevEnv := reloadedConfig.Environments["development"]
 		updatedDevEnv.Description = "Updated development environment"
 		updatedDevEnv.Headers["X-Version"] = "2.0"
 		updatedDevEnv.UpdatedAt = time.Now()
-		
+
 		reloadedConfig.Environments["development"] = updatedDevEnv
 		err = suite.ConfigManager.Save(reloadedConfig)
 		require.NoError(t, err)
-		
+
 		// Step 9: Verify update
 		finalConfig, err := suite.ConfigManager.Load()
 		require.NoError(t, err)
-		
+
 		finalDevEnv := finalConfig.Environments["development"]
 		assert.Equal(t, "Updated development environment", finalDevEnv.Description)
 		assert.Equal(t, "2.0", finalDevEnv.Headers["X-Version"])
 		assert.True(t, finalDevEnv.UpdatedAt.After(devEnv.UpdatedAt))
-		
+
 		// Step 10: Remove an environment
 		delete(finalConfig.Environments, "development")
 		if finalConfig.DefaultEnv == "development" {
 			finalConfig.DefaultEnv = "production"
 		}
-		
+
 		err = suite.ConfigManager.Save(finalConfig)
 		require.NoError(t, err)
-		
+
 		// Step 11: Verify removal
 		cleanupConfig, err := suite.ConfigManager.Load()
 		require.NoError(t, err)
-		
+
 		assert.Len(t, cleanupConfig.Environments, 1)
 		assert.NotContains(t, cleanupConfig.Environments, "development")
 		assert.Contains(t, cleanupConfig.Environments, "production")
@@ -220,7 +223,7 @@ func TestE2E_CompleteEnvironmentManagementWorkflow(t *testing.T) {
 func TestE2E_NetworkValidationWorkflow(t *testing.T) {
 	suite := SetupE2ETestSuite(t)
 	defer suite.Cleanup()
-	
+
 	t.Run("network_validation_complete", func(t *testing.T) {
 		// Test with different server responses
 		testCases := []struct {
@@ -273,26 +276,26 @@ func TestE2E_NetworkValidationWorkflow(t *testing.T) {
 				expectedStatus: 200,
 			},
 		}
-		
+
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				// Configure mock server
 				suite.MockServer.AddResponse(tc.path, tc.response)
-				
+
 				// Test endpoint validation
 				url := suite.MockServer.URL() + tc.path
 				result, err := suite.NetworkValidator.ValidateEndpoint(url)
 				require.NoError(t, err)
-				
+
 				assert.Equal(t, tc.expectSuccess, result.Success)
 				assert.Equal(t, tc.expectedStatus, result.StatusCode)
 				assert.True(t, result.ResponseTime > 0)
 				assert.WithinDuration(t, time.Now(), result.Timestamp, time.Second)
-				
+
 				// Test with timeout
 				result, err = suite.NetworkValidator.ValidateEndpointWithTimeout(url, 200*time.Millisecond)
 				require.NoError(t, err)
-				
+
 				if tc.response.Delay > 200*time.Millisecond {
 					assert.False(t, result.Success, "Should timeout on slow response")
 				}
@@ -304,7 +307,7 @@ func TestE2E_NetworkValidationWorkflow(t *testing.T) {
 func TestE2E_ErrorHandlingWorkflow(t *testing.T) {
 	suite := SetupE2ETestSuite(t)
 	defer suite.Cleanup()
-	
+
 	t.Run("error_handling_complete", func(t *testing.T) {
 		// Test configuration errors
 		t.Run("config_errors", func(t *testing.T) {
@@ -319,15 +322,15 @@ func TestE2E_ErrorHandlingWorkflow(t *testing.T) {
 					},
 				},
 			}
-			
+
 			err := suite.ConfigManager.Validate(invalidConfig)
 			require.Error(t, err)
-			
+
 			var configErr *types.ConfigError
 			assert.ErrorAs(t, err, &configErr)
 			assert.NotEmpty(t, configErr.GetSuggestions())
 		})
-		
+
 		// Test network errors
 		t.Run("network_errors", func(t *testing.T) {
 			// Test invalid URLs
@@ -337,7 +340,7 @@ func TestE2E_ErrorHandlingWorkflow(t *testing.T) {
 				"ftp://invalid.com",
 				"https://nonexistent-domain-12345.com",
 			}
-			
+
 			for _, url := range invalidURLs {
 				_, err := suite.NetworkValidator.ValidateEndpoint(url)
 				if err != nil {
@@ -354,16 +357,20 @@ func TestE2E_ErrorHandlingWorkflow(t *testing.T) {
 				}
 			}
 		})
-		
+
 		// Test launcher errors
 		t.Run("launcher_errors", func(t *testing.T) {
 			// Test with invalid executable path
 			invalidLauncher := launcher.NewSystemLauncher()
 			invalidLauncher.SetClaudeCodePath("/nonexistent/claude-code")
-			
-			err := invalidLauncher.Launch(nil, []string{"test"})
+
+			params := &types.LaunchParameters{
+				Environment: nil,
+				Arguments:   []string{"test"},
+			}
+			err := invalidLauncher.Launch(params)
 			require.Error(t, err)
-			
+
 			var launcherErr *types.LauncherError
 			assert.ErrorAs(t, err, &launcherErr)
 			assert.NotEmpty(t, launcherErr.GetSuggestions())
@@ -374,46 +381,50 @@ func TestE2E_ErrorHandlingWorkflow(t *testing.T) {
 func TestE2E_PerformanceWorkflow(t *testing.T) {
 	suite := SetupE2ETestSuite(t)
 	defer suite.Cleanup()
-	
+
 	perfHelper := testutils.NewPerformanceHelper()
-	
+
 	t.Run("performance_complete", func(t *testing.T) {
 		// Create a moderately sized configuration
 		generator := testutils.NewTestDataGenerator()
 		envNames := []string{"dev", "staging", "prod", "test", "demo"}
 		testConfig := generator.GenerateConfig(envNames)
-		
+
 		// Override URLs to use mock server
 		for name, env := range testConfig.Environments {
 			env.BaseURL = suite.MockServer.URL() + "/v1"
 			testConfig.Environments[name] = env
 		}
-		
+
 		// Test complete workflow performance
 		perfHelper.MeasureOperation("complete_workflow", func() {
 			// Save config
 			suite.ConfigManager.Save(testConfig)
-			
+
 			// Load config
 			loadedConfig, _ := suite.ConfigManager.Load()
-			
+
 			// Validate all environments
 			for _, env := range loadedConfig.Environments {
 				suite.NetworkValidator.ValidateEndpoint(env.BaseURL)
 			}
-			
+
 			// Test launcher with one environment
 			if len(loadedConfig.Environments) > 0 {
 				for _, env := range loadedConfig.Environments {
-					suite.Launcher.Launch(&env, []string{"--version"})
+					params := &types.LaunchParameters{
+						Environment: &env,
+						Arguments:   []string{"--version"},
+					}
+					suite.Launcher.Launch(params)
 					break // Just test one for performance
 				}
 			}
 		})
-		
+
 		measurements := perfHelper.GetMeasurements()
 		assert.NotEmpty(t, measurements)
-		
+
 		workflowDuration := perfHelper.GetAverageDuration("complete_workflow")
 		assert.True(t, workflowDuration < 5*time.Second,
 			"Complete workflow should be reasonably fast: %v", workflowDuration)
@@ -423,9 +434,9 @@ func TestE2E_PerformanceWorkflow(t *testing.T) {
 func TestE2E_SecurityWorkflow(t *testing.T) {
 	suite := SetupE2ETestSuite(t)
 	defer suite.Cleanup()
-	
+
 	secHelper := testutils.NewSecurityTestHelper(t)
-	
+
 	t.Run("security_complete", func(t *testing.T) {
 		// Create config with sensitive data
 		sensitiveAPIKey := "sk-ant-api03-very-secret-key-that-must-be-protected"
@@ -439,23 +450,23 @@ func TestE2E_SecurityWorkflow(t *testing.T) {
 				},
 			},
 		}
-		
+
 		// Save config
 		err := suite.ConfigManager.Save(testConfig)
 		require.NoError(t, err)
-		
+
 		// Verify file permissions
 		configPath := suite.ConfigManager.GetConfigPath()
 		secHelper.ValidateFilePermissions(configPath, 0600)
-		
+
 		// Verify directory permissions
 		configDir := filepath.Dir(configPath)
 		secHelper.ValidateFilePermissions(configDir, 0700)
-		
+
 		// Test that API key masking works
 		maskedKey := "***" + sensitiveAPIKey[len(sensitiveAPIKey)-4:]
 		secHelper.ValidateAPIKeyMasking(maskedKey, sensitiveAPIKey)
-		
+
 		// Test error messages don't leak sensitive data
 		invalidConfig := &types.Config{
 			Version: "1.0.0",
@@ -467,10 +478,10 @@ func TestE2E_SecurityWorkflow(t *testing.T) {
 				},
 			},
 		}
-		
+
 		err = suite.ConfigManager.Validate(invalidConfig)
 		require.Error(t, err)
-		
+
 		errorMessage := err.Error()
 		secHelper.ValidateNoSensitiveDataInLogs(errorMessage, []string{sensitiveAPIKey})
 	})
@@ -479,26 +490,26 @@ func TestE2E_SecurityWorkflow(t *testing.T) {
 func TestE2E_BackupAndRecoveryWorkflow(t *testing.T) {
 	suite := SetupE2ETestSuite(t)
 	defer suite.Cleanup()
-	
+
 	t.Run("backup_recovery_complete", func(t *testing.T) {
 		// Create initial configuration
 		helper := mocks.NewTestHelper()
 		originalConfig := helper.CreateTestConfig()
-		
+
 		err := suite.ConfigManager.Save(originalConfig)
 		require.NoError(t, err)
-		
+
 		// Create backup
 		err = suite.ConfigManager.Backup()
 		require.NoError(t, err)
-		
+
 		// Verify backup exists
 		configPath := suite.ConfigManager.GetConfigPath()
 		backupPath := configPath + ".backup"
-		
+
 		_, err = os.Stat(backupPath)
 		require.NoError(t, err)
-		
+
 		// Modify original config
 		modifiedConfig := helper.CreateTestConfig()
 		modifiedConfig.Environments["modified"] = types.Environment{
@@ -506,21 +517,21 @@ func TestE2E_BackupAndRecoveryWorkflow(t *testing.T) {
 			BaseURL: "https://modified.api.com/v1",
 			APIKey:  "modified-key-12345",
 		}
-		
+
 		err = suite.ConfigManager.Save(modifiedConfig)
 		require.NoError(t, err)
-		
+
 		// Simulate recovery from backup
 		backupData, err := os.ReadFile(backupPath)
 		require.NoError(t, err)
-		
+
 		err = os.WriteFile(configPath, backupData, 0600)
 		require.NoError(t, err)
-		
+
 		// Load recovered config
 		recoveredConfig, err := suite.ConfigManager.Load()
 		require.NoError(t, err)
-		
+
 		// Should match original config
 		assert.Equal(t, originalConfig.Version, recoveredConfig.Version)
 		assert.Len(t, recoveredConfig.Environments, len(originalConfig.Environments))
@@ -531,13 +542,13 @@ func TestE2E_BackupAndRecoveryWorkflow(t *testing.T) {
 func TestE2E_ConcurrencyWorkflow(t *testing.T) {
 	suite := SetupE2ETestSuite(t)
 	defer suite.Cleanup()
-	
+
 	concHelper := testutils.NewConcurrencyTestHelper(t)
-	
+
 	t.Run("concurrency_complete", func(t *testing.T) {
 		// Test concurrent operations
 		operations := make([]func() error, 10)
-		
+
 		for i := 0; i < 10; i++ {
 			envName := "concurrent-env-" + string(rune('a'+i))
 			operations[i] = func() error {
@@ -547,43 +558,47 @@ func TestE2E_ConcurrencyWorkflow(t *testing.T) {
 					BaseURL: suite.MockServer.URL() + "/v1",
 					APIKey:  envName + "-key-12345",
 				}
-				
+
 				// Load, modify, save config
 				config, err := suite.ConfigManager.Load()
 				if err != nil {
 					return err
 				}
-				
+
 				config.Environments[envName] = env
-				
+
 				err = suite.ConfigManager.Save(config)
 				if err != nil {
 					return err
 				}
-				
+
 				// Test network validation
 				_, err = suite.NetworkValidator.ValidateEndpoint(env.BaseURL)
 				if err != nil {
 					return err
 				}
-				
+
 				// Test launcher
-				return suite.Launcher.Launch(&env, []string{"--version"})
+				params := &types.LaunchParameters{
+					Environment: &env,
+					Arguments:   []string{"--version"},
+				}
+				return suite.Launcher.Launch(params)
 			}
 		}
-		
+
 		// Run operations concurrently
 		results := concHelper.RunConcurrentOperations(operations, 3)
-		
+
 		// All should succeed
 		for i, err := range results {
 			assert.NoError(t, err, "Concurrent operation %d should succeed", i)
 		}
-		
+
 		// Verify final state
 		finalConfig, err := suite.ConfigManager.Load()
 		require.NoError(t, err)
-		
+
 		// Should have multiple environments (exact count may vary due to concurrency)
 		assert.NotEmpty(t, finalConfig.Environments)
 	})
@@ -592,7 +607,7 @@ func TestE2E_ConcurrencyWorkflow(t *testing.T) {
 func TestE2E_RealWorldScenarios(t *testing.T) {
 	suite := SetupE2ETestSuite(t)
 	defer suite.Cleanup()
-	
+
 	t.Run("real_world_scenarios", func(t *testing.T) {
 		// Scenario 1: Developer setting up multiple environments
 		t.Run("developer_setup", func(t *testing.T) {
@@ -600,7 +615,7 @@ func TestE2E_RealWorldScenarios(t *testing.T) {
 			config, err := suite.ConfigManager.Load()
 			require.NoError(t, err)
 			assert.Empty(t, config.Environments)
-			
+
 			// Add development environment
 			devEnv := types.Environment{
 				Name:        "local-dev",
@@ -612,15 +627,15 @@ func TestE2E_RealWorldScenarios(t *testing.T) {
 					"X-Debug":       "true",
 				},
 			}
-			
+
 			config.Environments = map[string]types.Environment{
 				"local-dev": devEnv,
 			}
 			config.DefaultEnv = "local-dev"
-			
+
 			err = suite.ConfigManager.Save(config)
 			require.NoError(t, err)
-			
+
 			// Add staging environment
 			stagingEnv := types.Environment{
 				Name:        "staging",
@@ -631,18 +646,22 @@ func TestE2E_RealWorldScenarios(t *testing.T) {
 					"X-Environment": "staging",
 				},
 			}
-			
+
 			config.Environments["staging"] = stagingEnv
 			err = suite.ConfigManager.Save(config)
 			require.NoError(t, err)
-			
+
 			// Test switching between environments
 			for name, env := range config.Environments {
-				err := suite.Launcher.Launch(&env, []string{"--env", name, "--help"})
+				params := &types.LaunchParameters{
+					Environment: &env,
+					Arguments:   []string{"--env", name, "--help"},
+				}
+				err := suite.Launcher.Launch(params)
 				assert.NoError(t, err, "Should be able to launch with %s environment", name)
 			}
 		})
-		
+
 		// Scenario 2: Team member joining project
 		t.Run("team_member_onboarding", func(t *testing.T) {
 			// Simulate receiving a config from a team member
@@ -672,24 +691,28 @@ func TestE2E_RealWorldScenarios(t *testing.T) {
 				},
 				DefaultEnv: "team-dev",
 			}
-			
+
 			// Save team config
 			err := suite.ConfigManager.Save(teamConfig)
 			require.NoError(t, err)
-			
+
 			// Validate all environments work
 			for name, env := range teamConfig.Environments {
 				// Network validation
 				result, err := suite.NetworkValidator.ValidateEndpoint(env.BaseURL)
 				require.NoError(t, err)
 				assert.True(t, result.Success, "Network should be accessible for %s", name)
-				
+
 				// Launcher test
-				err = suite.Launcher.Launch(&env, []string{"--version"})
+				params := &types.LaunchParameters{
+					Environment: &env,
+					Arguments:   []string{"--version"},
+				}
+				err = suite.Launcher.Launch(params)
 				assert.NoError(t, err, "Should be able to launch with %s", name)
 			}
 		})
-		
+
 		// Scenario 3: Environment migration
 		t.Run("environment_migration", func(t *testing.T) {
 			// Start with old environment
@@ -704,10 +727,10 @@ func TestE2E_RealWorldScenarios(t *testing.T) {
 				},
 				DefaultEnv: "old-api",
 			}
-			
+
 			err := suite.ConfigManager.Save(oldConfig)
 			require.NoError(t, err)
-			
+
 			// Migrate to new environment
 			newEnv := types.Environment{
 				Name:        "new-api",
@@ -719,33 +742,33 @@ func TestE2E_RealWorldScenarios(t *testing.T) {
 					"X-Client":    "cce-migrated",
 				},
 			}
-			
+
 			// Add new environment
 			oldConfig.Environments["new-api"] = newEnv
 			oldConfig.DefaultEnv = "new-api"
-			
+
 			err = suite.ConfigManager.Save(oldConfig)
 			require.NoError(t, err)
-			
+
 			// Test new environment
 			suite.MockServer.AddResponse("/v2", testutils.MockResponse{
 				StatusCode: 200,
 				Body:       `{"version": "2.0", "status": "ok"}`,
 			})
-			
+
 			result, err := suite.NetworkValidator.ValidateEndpoint(newEnv.BaseURL)
 			require.NoError(t, err)
 			assert.True(t, result.Success)
-			
+
 			// Remove old environment after successful migration
 			delete(oldConfig.Environments, "old-api")
 			err = suite.ConfigManager.Save(oldConfig)
 			require.NoError(t, err)
-			
+
 			// Verify migration
 			finalConfig, err := suite.ConfigManager.Load()
 			require.NoError(t, err)
-			
+
 			assert.Len(t, finalConfig.Environments, 1)
 			assert.Contains(t, finalConfig.Environments, "new-api")
 			assert.NotContains(t, finalConfig.Environments, "old-api")
@@ -789,13 +812,17 @@ func validateCompleteWorkflow(t *testing.T, suite *E2ETestSuite, env types.Envir
 	result, err := suite.NetworkValidator.ValidateEndpoint(env.BaseURL)
 	require.NoError(t, err)
 	assert.True(t, result.Success, "Network validation should succeed")
-	
+
 	// API connectivity
 	err = suite.NetworkValidator.TestAPIConnectivity(&env)
 	require.NoError(t, err, "API connectivity should work")
-	
+
 	// Launcher test
-	err = suite.Launcher.Launch(&env, []string{"--version"})
+	params := &types.LaunchParameters{
+		Environment: &env,
+		Arguments:   []string{"--version"},
+	}
+	err = suite.Launcher.Launch(params)
 	require.NoError(t, err, "Launcher should work")
 }
 
@@ -804,25 +831,29 @@ func validateCompleteWorkflow(t *testing.T, suite *E2ETestSuite, env types.Envir
 func BenchmarkE2E_CompleteWorkflow(b *testing.B) {
 	suite := SetupE2ETestSuite(&testing.T{})
 	defer suite.Cleanup()
-	
+
 	helper := mocks.NewTestHelper()
 	testConfig := helper.CreateTestConfig()
-	
+
 	// Override URL to use mock server
 	for name, env := range testConfig.Environments {
 		env.BaseURL = suite.MockServer.URL() + "/v1"
 		testConfig.Environments[name] = env
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Complete workflow: save, load, validate, launch
 		suite.ConfigManager.Save(testConfig)
 		config, _ := suite.ConfigManager.Load()
-		
+
 		for _, env := range config.Environments {
 			suite.NetworkValidator.ValidateEndpoint(env.BaseURL)
-			suite.Launcher.Launch(&env, []string{"--version"})
+			params := &types.LaunchParameters{
+				Environment: &env,
+				Arguments:   []string{"--version"},
+			}
+			suite.Launcher.Launch(params)
 			break // Just test one for benchmarking
 		}
 	}

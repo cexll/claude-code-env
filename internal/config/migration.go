@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/claude-code/env-switcher/pkg/types"
+	"github.com/cexll/claude-code-env/pkg/types"
 )
 
 // MigrationManager handles configuration schema migrations for backward compatibility
@@ -34,7 +34,7 @@ func NewMigrationManager(configPath string) *MigrationManager {
 		migrations:     make(map[string]ConfigMigration),
 		currentVersion: "1.1.0", // Updated version with model support
 	}
-	
+
 	manager.initializeMigrations()
 	return manager
 }
@@ -44,12 +44,12 @@ func (m *MigrationManager) GetConfigVersion(config *types.Config) string {
 	if config == nil {
 		return ""
 	}
-	
+
 	// If version is empty or missing, it's from v1.0.0
 	if config.Version == "" {
 		return "1.0.0"
 	}
-	
+
 	return config.Version
 }
 
@@ -58,7 +58,7 @@ func (m *MigrationManager) NeedsMigration(config *types.Config) bool {
 	if config == nil {
 		return false
 	}
-	
+
 	currentVersion := m.GetConfigVersion(config)
 	return currentVersion != m.currentVersion
 }
@@ -73,7 +73,7 @@ func (m *MigrationManager) MigrateConfig(config *types.Config) (*types.Config, e
 	}
 
 	originalVersion := m.GetConfigVersion(config)
-	
+
 	// If already at current version, no migration needed
 	if originalVersion == m.currentVersion {
 		return config, nil
@@ -87,7 +87,7 @@ func (m *MigrationManager) MigrateConfig(config *types.Config) (*types.Config, e
 	// Perform step-by-step migration
 	migratedConfig := config
 	var err error
-	
+
 	// Apply migrations in sequence
 	migrationPath := m.getMigrationPath(originalVersion, m.currentVersion)
 	for _, migration := range migrationPath {
@@ -231,7 +231,7 @@ func (m *MigrationManager) ValidateMigration(config *types.Config, targetVersion
 	}
 
 	currentVersion := m.GetConfigVersion(config)
-	
+
 	// Check if migration is supported
 	migrationPath := m.getMigrationPath(currentVersion, targetVersion)
 	if len(migrationPath) == 0 {
@@ -279,7 +279,7 @@ func (m *MigrationManager) GetCurrentVersion() string {
 func (m *MigrationManager) ListBackups() ([]string, error) {
 	configDir := filepath.Dir(m.configPath)
 	configName := filepath.Base(m.configPath)
-	
+
 	files, err := os.ReadDir(configDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config directory: %w", err)
@@ -287,7 +287,7 @@ func (m *MigrationManager) ListBackups() ([]string, error) {
 
 	var backups []string
 	backupPrefix := configName + ".backup-"
-	
+
 	for _, file := range files {
 		if !file.IsDir() && len(file.Name()) > len(backupPrefix) && file.Name()[:len(backupPrefix)] == backupPrefix {
 			backups = append(backups, filepath.Join(configDir, file.Name()))
@@ -331,7 +331,7 @@ func (m *MigrationManager) CleanupOldBackups(maxAge time.Duration) error {
 	}
 
 	cutoff := time.Now().Add(-maxAge)
-	
+
 	for _, backup := range backups {
 		stat, err := os.Stat(backup)
 		if err != nil {

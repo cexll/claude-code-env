@@ -19,7 +19,7 @@ type Environment struct {
 	Description string            `json:"description,omitempty"`
 	BaseURL     string            `json:"base_url"`
 	APIKey      string            `json:"api_key"`
-	Model       string            `json:"model,omitempty"`           // NEW: Optional model specification
+	Model       string            `json:"model,omitempty"` // NEW: Optional model specification
 	Headers     map[string]string `json:"headers,omitempty"`
 	CreatedAt   time.Time         `json:"created_at"`
 	UpdatedAt   time.Time         `json:"updated_at"`
@@ -28,11 +28,11 @@ type Environment struct {
 
 // NetworkInfo stores network validation results for an environment
 type NetworkInfo struct {
-	LastChecked   time.Time `json:"last_checked,omitempty"`
-	Status        string    `json:"status,omitempty"`
-	ResponseTime  int64     `json:"response_time_ms,omitempty"`
-	ErrorMessage  string    `json:"error_message,omitempty"`
-	SSLValid      bool      `json:"ssl_valid,omitempty"`
+	LastChecked  time.Time `json:"last_checked,omitempty"`
+	Status       string    `json:"status,omitempty"`
+	ResponseTime int64     `json:"response_time_ms,omitempty"`
+	ErrorMessage string    `json:"error_message,omitempty"`
+	SSLValid     bool      `json:"ssl_valid,omitempty"`
 }
 
 // ConfigManager interface defines operations for configuration management
@@ -58,10 +58,10 @@ type InteractiveUI interface {
 	Select(label string, items []SelectItem) (int, string, error)
 	Prompt(label string, validate func(string) error) (string, error)
 	PromptPassword(label string, validate func(string) error) (string, error)
-	PromptModel(label string, suggestions []string) (string, error)  // NEW: Model input with suggestions
+	PromptModel(label string, suggestions []string) (string, error) // NEW: Model input with suggestions
 	Confirm(label string) (bool, error)
 	MultiInput(fields []InputField) (map[string]string, error)
-	ShowEnvironmentDetails(env *Environment, includeModel bool)       // ENHANCED: Model display support
+	ShowEnvironmentDetails(env *Environment, includeModel bool) // ENHANCED: Model display support
 }
 
 // LauncherBase defines the unified interface for all launcher implementations
@@ -323,10 +323,10 @@ type DelegationPlan interface {
 
 // LaunchParameters consolidates multiple function parameters into a structured object
 type LaunchParameters struct {
-	Environment     *Environment      `validate:"required"`
-	Arguments       []string          `validate:"required"`
-	WorkingDir      string            `validate:"dir"`
-	Timeout         time.Duration     `validate:"min=1s,max=1h"`
+	Environment     *Environment  `validate:"required"`
+	Arguments       []string      `validate:"required"`
+	WorkingDir      string        `validate:"dir"`
+	Timeout         time.Duration `validate:"min=1s,max=1h"`
 	Verbose         bool
 	DryRun          bool
 	PassthroughMode bool
@@ -346,7 +346,7 @@ func (lp *LaunchParameters) Validate() error {
 			},
 		}
 	}
-	
+
 	if len(lp.Arguments) == 0 {
 		return &ConfigError{
 			Type:    ConfigValidationFailed,
@@ -358,7 +358,7 @@ func (lp *LaunchParameters) Validate() error {
 			},
 		}
 	}
-	
+
 	if lp.Timeout > 0 && lp.Timeout < time.Second {
 		return &ConfigError{
 			Type:    ConfigValidationFailed,
@@ -370,7 +370,7 @@ func (lp *LaunchParameters) Validate() error {
 			},
 		}
 	}
-	
+
 	if lp.Timeout > time.Hour {
 		return &ConfigError{
 			Type:    ConfigValidationFailed,
@@ -382,30 +382,30 @@ func (lp *LaunchParameters) Validate() error {
 			},
 		}
 	}
-	
+
 	return nil
 }
 
 // WithDefaults returns LaunchParameters with default values applied
 func (lp *LaunchParameters) WithDefaults() *LaunchParameters {
 	result := *lp // Copy struct
-	
+
 	if result.Timeout == 0 {
 		result.Timeout = 5 * time.Minute // Default 5 minute timeout
 	}
-	
+
 	return &result
 }
 
 // LauncherMetrics contains performance and operational metrics for launchers
 type LauncherMetrics struct {
-	TotalLaunches       int64         `json:"total_launches"`
-	SuccessfulLaunches  int64         `json:"successful_launches"`
-	FailedLaunches      int64         `json:"failed_launches"`
-	AverageLatency      time.Duration `json:"average_latency"`
-	LastLaunchTime      time.Time     `json:"last_launch_time"`
-	DelegationMetrics   *DelegationMetrics `json:"delegation_metrics,omitempty"`
-	EnvironmentMetrics  map[string]*EnvironmentMetrics `json:"environment_metrics,omitempty"`
+	TotalLaunches      int64                          `json:"total_launches"`
+	SuccessfulLaunches int64                          `json:"successful_launches"`
+	FailedLaunches     int64                          `json:"failed_launches"`
+	AverageLatency     time.Duration                  `json:"average_latency"`
+	LastLaunchTime     time.Time                      `json:"last_launch_time"`
+	DelegationMetrics  *DelegationMetrics             `json:"delegation_metrics,omitempty"`
+	EnvironmentMetrics map[string]*EnvironmentMetrics `json:"environment_metrics,omitempty"`
 }
 
 // DelegationMetrics tracks delegation-specific performance data
@@ -419,9 +419,9 @@ type DelegationMetrics struct {
 
 // EnvironmentMetrics tracks per-environment usage statistics
 type EnvironmentMetrics struct {
-	Name          string        `json:"name"`
-	UsageCount    int64         `json:"usage_count"`
-	LastUsed      time.Time     `json:"last_used"`
+	Name           string        `json:"name"`
+	UsageCount     int64         `json:"usage_count"`
+	LastUsed       time.Time     `json:"last_used"`
 	AverageLatency time.Duration `json:"average_latency"`
-	ErrorCount    int64         `json:"error_count"`
+	ErrorCount     int64         `json:"error_count"`
 }

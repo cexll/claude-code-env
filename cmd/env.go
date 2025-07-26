@@ -7,10 +7,10 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/cexll/claude-code-env/internal/config"
+	"github.com/cexll/claude-code-env/internal/ui"
+	"github.com/cexll/claude-code-env/pkg/types"
 	"github.com/spf13/cobra"
-	"github.com/claude-code/env-switcher/internal/config"
-	"github.com/claude-code/env-switcher/internal/ui"
-	"github.com/claude-code/env-switcher/pkg/types"
 )
 
 // envCmd represents the env command
@@ -233,9 +233,9 @@ func collectEnvironmentDetails(ui *ui.TerminalUI) (map[string]string, error) {
 
 	// Create model handler for suggestions
 	modelHandler := config.NewModelConfigHandler()
-	
+
 	// Prompt for model configuration with suggestions
-	model, err := ui.PromptModel("Model (optional - press Enter for default)", 
+	model, err := ui.PromptModel("Model (optional - press Enter for default)",
 		modelHandler.GetModelSuggestions())
 	if err != nil {
 		return nil, err
@@ -469,12 +469,12 @@ func getEnvironmentNameForRemove(ui *ui.TerminalUI, cfg *types.Config, args []st
 
 	// Build selection items from available environments
 	items := buildEnvironmentSelectItems(cfg.Environments)
-	
+
 	index, _, err := ui.Select("Select environment to remove", items)
 	if err != nil {
 		return "", err
 	}
-	
+
 	return items[index].Value.(string), nil
 }
 
@@ -495,14 +495,14 @@ func buildEnvironmentSelectItems(environments map[string]types.Environment) []ty
 		if description == "" {
 			description = env.BaseURL
 		}
-		
+
 		// Add model information to description if available
 		if env.Model != "" {
 			description = fmt.Sprintf("%s (Model: %s)", description, env.Model)
 		} else {
 			description = fmt.Sprintf("%s (Default model)", description)
 		}
-		
+
 		items = append(items, types.SelectItem{
 			Label:       name,
 			Description: description,
@@ -688,12 +688,12 @@ func getEnvironmentNameForEdit(ui *ui.TerminalUI, cfg *types.Config, args []stri
 
 	// Build selection items from available environments
 	items := buildEnvironmentSelectItems(cfg.Environments)
-	
+
 	index, _, err := ui.Select("Select environment to edit", items)
 	if err != nil {
 		return "", err
 	}
-	
+
 	return items[index].Value.(string), nil
 }
 
@@ -723,7 +723,7 @@ func getExistingEnvironment(cfg *types.Config, envName string) (*types.Environme
 			},
 		}
 	}
-	
+
 	return &existingEnv, nil
 }
 
@@ -754,7 +754,7 @@ func collectUpdatedEnvironmentDetails(ui *ui.TerminalUI, existingEnv *types.Envi
 			Required: false,
 		},
 		{
-			Name:        "base_url",  
+			Name:        "base_url",
 			Label:       "Base URL",
 			Default:     existingEnv.BaseURL,
 			Required:    true,
@@ -779,15 +779,15 @@ func collectUpdatedEnvironmentDetails(ui *ui.TerminalUI, existingEnv *types.Envi
 
 	// Create model handler for suggestions
 	modelHandler := config.NewModelConfigHandler()
-	
+
 	// Prompt for model configuration with existing value as default
 	currentModel := existingEnv.Model
 	if currentModel == "" {
 		currentModel = "Default (Claude CLI default)"
 	}
-	
+
 	fmt.Printf("\nCurrent model: %s\n", currentModel)
-	model, err := ui.PromptModel("Model (press Enter to keep current, empty for default)", 
+	model, err := ui.PromptModel("Model (press Enter to keep current, empty for default)",
 		modelHandler.GetModelSuggestions())
 	if err != nil {
 		return nil, err
@@ -828,15 +828,15 @@ func updateAndSaveEnvironment(configManager types.ConfigManager, cfg *types.Conf
 	updatedEnv := *existingEnv
 	updatedEnv.Description = updatedDetails["description"]
 	updatedEnv.BaseURL = updatedDetails["base_url"]
-	
+
 	// Only update API key if a new one was provided (not the masked default)
 	if !strings.HasPrefix(updatedDetails["api_key"], "***") {
 		updatedEnv.APIKey = updatedDetails["api_key"]
 	}
-	
+
 	// Update model configuration (NEW)
 	updatedEnv.Model = updatedDetails["model"]
-	
+
 	updatedEnv.UpdatedAt = time.Now()
 
 	// Update network info to indicate validation needed
@@ -878,7 +878,7 @@ func validateEnvName(cfg *types.Config) func(string) error {
 				},
 			}
 		}
-		
+
 		if len(input) > 50 {
 			return &types.ConfigError{
 				Type:    types.ConfigValidationFailed,
@@ -892,7 +892,7 @@ func validateEnvName(cfg *types.Config) func(string) error {
 				},
 			}
 		}
-		
+
 		if _, exists := cfg.Environments[input]; exists {
 			return &types.ConfigError{
 				Type:    types.ConfigValidationFailed,
@@ -906,7 +906,7 @@ func validateEnvName(cfg *types.Config) func(string) error {
 				},
 			}
 		}
-		
+
 		return nil
 	}
 }
@@ -936,7 +936,7 @@ func validateBaseURL(input string) error {
 			},
 		}
 	}
-	
+
 	if !strings.HasPrefix(input, "http://") && !strings.HasPrefix(input, "https://") {
 		return &types.ConfigError{
 			Type:    types.ConfigValidationFailed,
@@ -950,7 +950,7 @@ func validateBaseURL(input string) error {
 			},
 		}
 	}
-	
+
 	return nil
 }
 
@@ -979,7 +979,7 @@ func validateAPIKey(input string) error {
 			},
 		}
 	}
-	
+
 	if len(input) < 10 {
 		return &types.ConfigError{
 			Type:    types.ConfigValidationFailed,
@@ -993,6 +993,6 @@ func validateAPIKey(input string) error {
 			},
 		}
 	}
-	
+
 	return nil
 }
