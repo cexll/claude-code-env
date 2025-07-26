@@ -294,7 +294,7 @@ func TestConcurrentOperations_ConfigManager(t *testing.T) {
 	require.NoError(t, err)
 
 	concHelper := testutils.NewConcurrencyTestHelper(t)
-	perfHelper := testutils.NewPerformanceHelper()
+	_ = testutils.NewPerformanceHelper() // for potential future use
 
 	// Test concurrent save operations
 	t.Run("concurrent_saves", func(t *testing.T) {

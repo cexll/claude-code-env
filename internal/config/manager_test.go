@@ -27,7 +27,7 @@ func TestFileConfigManager_Save_Load(t *testing.T) {
 	// Create test configuration
 	now := time.Now()
 	testConfig := &types.Config{
-		Version:    "1.0.0",
+		Version:    "1.1.0", // Use current version
 		DefaultEnv: "test",
 		Environments: map[string]types.Environment{
 			"test": {
@@ -78,7 +78,9 @@ func TestFileConfigManager_LoadEmpty(t *testing.T) {
 
 	// Create config manager with non-existent config file
 	manager := &FileConfigManager{
-		configPath: filepath.Join(tempDir, "nonexistent.json"),
+		configPath:       filepath.Join(tempDir, "nonexistent.json"),
+		modelHandler:     NewModelConfigHandler(),
+		migrationManager: NewMigrationManager(filepath.Join(tempDir, "nonexistent.json")),
 	}
 
 	// Test Load when file doesn't exist
@@ -86,7 +88,7 @@ func TestFileConfigManager_LoadEmpty(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should return empty config
-	assert.Equal(t, "1.0.0", config.Version)
+	assert.Equal(t, "1.1.0", config.Version)
 	assert.Empty(t, config.DefaultEnv)
 	assert.Empty(t, config.Environments)
 	assert.NotZero(t, config.CreatedAt)

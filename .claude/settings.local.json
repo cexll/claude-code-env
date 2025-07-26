@@ -29,7 +29,9 @@
       "Bash(sed -n '115,120p' internal/parser/analyzer.go)",
       "Bash(sed -n '160,185p' internal/parser/analyzer.go)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

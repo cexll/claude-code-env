@@ -40,7 +40,7 @@ func TestConfigManager_EmptyLoad(t *testing.T) {
 	config, err := manager.Load()
 	require.NoError(t, err)
 
-	assert.Equal(t, "1.0.0", config.Version)
+	assert.Equal(t, "1.1.0", config.Version)
 	assert.Empty(t, config.Environments)
 	assert.NotZero(t, config.CreatedAt)
 	assert.NotZero(t, config.UpdatedAt)
@@ -81,7 +81,7 @@ func TestConfigManager_SaveLoad(t *testing.T) {
 	loadedConfig, err := manager.Load()
 	require.NoError(t, err)
 
-	assert.Equal(t, testConfig.Version, loadedConfig.Version)
+	assert.Equal(t, "1.1.0", loadedConfig.Version) // Should be migrated to current version
 	assert.Equal(t, testConfig.DefaultEnv, loadedConfig.DefaultEnv)
 	assert.Len(t, loadedConfig.Environments, 1)
 

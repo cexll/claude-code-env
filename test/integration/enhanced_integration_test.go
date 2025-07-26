@@ -12,11 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cexll/claude-code-env/internal/builder"
-	"github.com/cexll/claude-code-env/internal/config"
 	"github.com/cexll/claude-code-env/internal/launcher"
 	"github.com/cexll/claude-code-env/internal/validation"
 	"github.com/cexll/claude-code-env/pkg/types"
-	"github.com/cexll/claude-code-env/test/mocks"
 )
 
 // TestEnhancedIntegrationWorkflows tests the complete enhanced workflow with all new features
@@ -342,10 +340,10 @@ func TestPerformanceIntegrationValidation(t *testing.T) {
 		assert.Less(t, validateTime, 5*time.Millisecond, "Config validate should be < 5ms")
 
 		// LaunchParameters Build < 1ms
-		env := &testConfig.Environments["perf-test"]
+		env := testConfig.Environments["perf-test"]
 		start = time.Now()
 		_, err = types.NewLaunchParametersBuilder().
-			WithEnvironment(env).
+			WithEnvironment(&env).
 			WithArguments([]string{"--help"}).
 			Build()
 		buildTime := time.Since(start)

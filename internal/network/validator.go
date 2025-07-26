@@ -182,7 +182,7 @@ func (v *Validator) performValidation(urlStr string) (*types.NetworkValidationRe
 	parsedURL, err := v.validateURLFormat(urlStr)
 	if err != nil {
 		result.Error = err.Error()
-		return result, nil
+		return result, err
 	}
 
 	// Perform HTTP request with diagnostics

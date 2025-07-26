@@ -1,0 +1,122 @@
+name: 'Setup Go Environment'
+description: 'Set up Go environment with caching and tool installation'
+author: 'Claude Code Environment Switcher Team'
+
+inputs:
+  go-version:
+    description: 'Go version to install'
+    required: false
+    default: '1.24'
+  cache-dependency-path:
+    description: 'Path to go.mod for cache key generation'
+    required: false
+    default: '**/go.sum'
+  install-tools:
+    description: 'Install additional tools (golangci-lint, gosec)'
+    required: false
+    default: 'true'
+  tool-cache-prefix:
+    description: 'Cache prefix for installed tools'
+    required: false
+    default: 'tools'
+
+outputs:
+  go-version:
+    description: 'Installed Go version'
+    value: ${{ steps.setup-go.outputs.go-version }}
+  cache-hit:
+    description: 'Whether cache was hit for Go modules'
+    value: ${{ steps.cache-modules.outputs.cache-hit }}
+  tools-cache-hit:
+    description: 'Whether cache was hit for tools'
+    value: ${{ steps.cache-tools.outputs.cache-hit }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Go
+      id: setup-go
+      uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+      with:
+        go-version: ${{ inputs.go-version }}
+        check-latest: true
+
+    - name: Cache Go modules
+      id: cache-modules
+      uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles(inputs.cache-dependency-path) }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Cache tools
+      id: cache-tools
+      if: inputs.install-tools == 'true'
+      uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+      with:
+        path: |
+          ~/.local/bin
+          ~/go/bin
+        key: ${{ runner.os }}-${{ inputs.tool-cache-prefix }}-${{ hashFiles('**/go.mod') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ inputs.tool-cache-prefix }}-
+
+    - name: Download Go modules
+      shell: bash
+      run: |
+        echo "Downloading Go modules..."
+        go mod download
+        go mod tidy
+
+    - name: Install development tools
+      if: inputs.install-tools == 'true' && steps.cache-tools.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        echo "Installing development tools..."
+        
+        # Install golangci-lint
+        if ! command -v golangci-lint &> /dev/null; then
+          echo "Installing golangci-lint..."
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+        fi
+        
+        # Install gosec
+        if ! command -v gosec &> /dev/null; then
+          echo "Installing gosec..."
+          go install github.com/securecodewarrior/gosec/v2/cmd/gosec@v2.18.2
+        fi
+        
+        # Install govulncheck
+        if ! command -v govulncheck &> /dev/null; then
+          echo "Installing govulncheck..."
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+        fi
+        
+        echo "Development tools installation complete"
+
+    - name: Verify Go installation
+      shell: bash
+      run: |
+        echo "Go version: $(go version)"
+        echo "Go environment:"
+        go env GOPATH
+        go env GOCACHE
+        go env GOROOT
+        
+        if [ "${{ inputs.install-tools }}" = "true" ]; then
+          echo "Installed tools:"
+          command -v golangci-lint && golangci-lint version || echo "golangci-lint not found"
+          command -v gosec && gosec -version || echo "gosec not found"
+          command -v govulncheck && govulncheck -version || echo "govulncheck not found"
+        fi
+
+    - name: Set environment variables
+      shell: bash
+      run: |
+        echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
+        echo "GOCACHE=$(go env GOCACHE)" >> $GITHUB_ENV
+        echo "GOROOT=$(go env GOROOT)" >> $GITHUB_ENV
+        echo "$(go env GOPATH)/bin" >> $GITHUB_PATH

@@ -249,9 +249,8 @@ func (emv *EnhancedModelValidator) GetSuggestedModels(apiType string) ([]string,
 
 // CacheValidationResult manually caches a validation result
 func (emv *EnhancedModelValidator) CacheValidationResult(key string, result *ModelValidationResult) {
-	// Parse key to extract model and endpoint
-	// For now, use key as model and empty endpoint
-	emv.cache.Set(key, "", result)
+	// Cache with pattern endpoint to match ValidateModelName behavior
+	emv.cache.Set(key, "pattern", result)
 }
 
 // ClearCache clears all cached validation results

@@ -166,7 +166,7 @@ func TestEnhancedModelValidator_CacheOperations(t *testing.T) {
 	validator := NewEnhancedModelValidator()
 
 	t.Run("ManualCacheOperation", func(t *testing.T) {
-		key := "manual-cache-test"
+		key := "test-model" // Use the actual model name as the key
 		result := &ModelValidationResult{
 			Valid:       true,
 			Model:       "test-model",
