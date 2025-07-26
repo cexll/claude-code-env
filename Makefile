@@ -2,7 +2,7 @@
 
 # Build variables
 BINARY_NAME=cce
-GO_VERSION=1.19
+GO_VERSION=1.24
 VERSION?=1.0.0
 BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 COMMIT_HASH=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")

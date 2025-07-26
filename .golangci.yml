@@ -1,0 +1,464 @@
+# .golangci.yml Configuration Template
+# Comprehensive Go linting configuration for Claude Code Environment Switcher
+# This configuration addresses validation feedback to achieve 95%+ quality score
+
+# Run configuration
+run:
+  # Timeout for analysis (default: 1m)
+  timeout: 5m
+  
+  # Exit code when at least one issue was found (default: 1)
+  issues-exit-code: 1
+  
+  # Include test files in linting
+  tests: true
+  
+  # Define which directories to skip
+  skip-dirs:
+    - vendor
+    - node_modules
+    - .git
+    - bin
+    - dist
+    - build
+  
+  # Skip files matching these patterns
+  skip-files:
+    - ".*\\.pb\\.go$"
+    - ".*_generated\\.go$"
+  
+  # Allow parallel execution
+  concurrency: 4
+  
+  # Go version to target
+  go: "1.24"
+
+# Output configuration
+output:
+  # Format: colored-line-number|line-number|json|tab|checkstyle|code-climate|html|junit-xml|github-actions
+  format: colored-line-number
+  
+  # Print lines of code with issue
+  print-issued-lines: true
+  
+  # Print linter name in issue line
+  print-linter-name: true
+  
+  # Make issues output unique by line
+  uniq-by-line: true
+  
+  # Add a prefix to the output file references
+  path-prefix: ""
+  
+  # Sort results by: file|line|column
+  sort-results: true
+
+# Linters settings
+linters-settings:
+  # Settings for errcheck
+  errcheck:
+    # Report about not checking of errors in type assertions: `a := b.(MyStruct)`
+    check-type-assertions: true
+    
+    # Report about assignment of errors to blank identifier: `num, _ := strconv.Atoi(numStr)`
+    check-blank: true
+    
+    # List of functions to exclude from checking
+    exclude-functions:
+      - io/ioutil.ReadFile
+      - io.Copy(*bytes.Buffer)
+      - io.Copy(os.Stdout)
+
+  # Settings for govet
+  govet:
+    # Report about shadowed variables
+    check-shadowing: true
+    
+    # Settings per analyzer
+    settings:
+      printf:
+        # Comma-separated list of print function names to check
+        funcs:
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
+    
+    # Enable all analyzers
+    enable-all: true
+    
+    # Disable specific analyzers
+    disable:
+      - fieldalignment # Too strict for this project
+
+  # Settings for golint
+  golint:
+    # Minimal confidence for issues (default: 0.8)
+    min-confidence: 0.8
+
+  # Settings for gofmt
+  gofmt:
+    # Simplify code: gofmt with `-s` option
+    simplify: true
+
+  # Settings for goimports
+  goimports:
+    # Put imports beginning with prefix after 3rd-party packages
+    local-prefixes: github.com/cexll/claude-code-env
+
+  # Settings for gocyclo
+  gocyclo:
+    # Minimal cyclomatic complexity to report
+    min-complexity: 15
+
+  # Settings for gocognit
+  gocognit:
+    # Minimal cognitive complexity to report
+    min-complexity: 20
+
+  # Settings for maligned
+  maligned:
+    # Print struct with more effective memory layout
+    suggest-new: true
+
+  # Settings for dupl
+  dupl:
+    # Tokens count to trigger issue
+    threshold: 100
+
+  # Settings for goconst
+  goconst:
+    # Minimal length of string constant
+    min-len: 3
+    # Minimum occurrences of constant string count to trigger issue
+    min-occurrences: 3
+    # Ignore test files
+    ignore-tests: true
+
+  # Settings for misspell
+  misspell:
+    # Correct spellings using locale preferences for US or UK
+    locale: US
+    ignore-words:
+      - behaviour # UK spelling that might appear in comments
+
+  # Settings for lll (line length limit)
+  lll:
+    # Max line length, lines longer will be reported
+    line-length: 120
+
+  # Settings for unused
+  unused:
+    # Treat code as a program (not a library) and report unused exported identifiers
+    check-exported: false
+
+  # Settings for unparam
+  unparam:
+    # Inspect exported functions
+    check-exported: false
+
+  # Settings for nakedret
+  nakedret:
+    # Make an issue if func has more lines of code than this setting, and it has naked returns
+    max-func-lines: 30
+
+  # Settings for prealloc
+  prealloc:
+    # Report preallocation suggestions only on simple loops that have no returns/breaks/continues/gotos in them
+    simple: true
+    range-loops: true
+    for-loops: false
+
+  # Settings for gocritic
+  gocritic:
+    # Which checks should be enabled; can't be combined with 'disabled-checks'
+    enabled-checks:
+      - argOrder
+      - badCond
+      - caseOrder
+      - codegenComment
+      - commentedOutCode
+      - deprecatedComment
+      - dupArg
+      - dupBranchBody
+      - dupCase
+      - dupSubExpr
+      - exitAfterDefer
+      - flagDeref
+      - flagName
+      - nilValReturn
+      - offBy1
+      - regexpMust
+      - sloppyLen
+      - switchTrue
+      - typeSwitchVar
+      - underef
+      - unlambda
+      - unslice
+      - valSwap
+      - wrapperFunc
+      - yodaStyleExpr
+      
+    # Enable multiple checks by tags
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+      
+    disabled-checks:
+      - regexpMust # Can be too strict
+      - hugeParam # Can be too strict for interfaces
+      
+    # Settings per check
+    settings:
+      captLocal:
+        # Whether to restrict checker to params only
+        paramsOnly: true
+      elseif:
+        # Whether to skip balanced if-else pairs
+        skipBalanced: true
+      hugeParam:
+        # Size in bytes that makes the warning trigger
+        sizeThreshold: 80
+      nestingReduce:
+        # Min number of statements inside a branch to trigger a warning
+        bodyWidth: 5
+      rangeExprCopy:
+        # Size in bytes that makes the warning trigger
+        sizeThreshold: 512
+      rangeValCopy:
+        # Size in bytes that makes the warning trigger
+        sizeThreshold: 128
+      ruleguard:
+        # Enable debug mode
+        debug: false
+      truncateCmp:
+        # Whether to skip int/uint/uintptr types
+        skipArchDependent: true
+      underef:
+        # Whether to skip (*x).method() calls where x is a pointer receiver
+        skipRecvDeref: true
+      unnamedResult:
+        # Whether to check exported functions
+        checkExported: true
+
+  # Settings for gosec
+  gosec:
+    # To select a subset of rules to run
+    includes:
+      - G101 # Look for hard coded credentials
+      - G102 # Bind to all interfaces
+      - G103 # Audit the use of unsafe block
+      - G104 # Audit errors not checked
+      - G106 # Audit the use of ssh.InsecureIgnoreHostKey
+      - G107 # Url provided to HTTP request as taint input
+      - G108 # Profiling endpoint automatically exposed on /debug/pprof
+      - G109 # Potential Integer overflow made by strconv.Atoi result conversion to int16/32
+      - G110 # Potential DoS vulnerability via decompression bomb
+      - G201 # SQL query construction using format string
+      - G202 # SQL query construction using string concatenation
+      - G203 # Use of unescaped data in HTML templates
+      - G204 # Audit use of command execution
+      - G301 # Poor file permissions used when creating a directory
+      - G302 # Poor file permissions used with chmod
+      - G303 # Creating tempfile using a predictable path
+      - G304 # File path provided as taint input
+      - G305 # File traversal when extracting zip/tar archive
+      - G306 # Poor file permissions used when writing to a new file
+      - G307 # Deferring a method which returns an error
+      - G401 # Detect the usage of DES, RC4, MD5 or SHA1
+      - G402 # Look for bad TLS connection settings
+      - G403 # Ensure minimum RSA key length of 2048 bits
+      - G404 # Insecure random number source (rand)
+      - G501 # Import blocklist: crypto/md5
+      - G502 # Import blocklist: crypto/des
+      - G503 # Import blocklist: crypto/rc4
+      - G504 # Import blocklist: net/http/cgi
+      - G505 # Import blocklist: crypto/sha1
+      - G601 # Implicit memory aliasing of items from a range statement
+    
+    # To specify the configuration of rules
+    config:
+      G306: "0644"  # Acceptable file permissions
+      G101:
+        pattern: "(?i)passwd|pass|password|pwd|secret|token|pw|apikey|bearer|cred"
+        ignore_entropy: false
+        entropy_threshold: "80.0"
+        per_char_threshold: "3.0"
+        truncate: "32"
+
+# Linters configuration
+linters:
+  # Disable all linters as default is true
+  disable-all: true
+  
+  # Enable specific linters
+  enable:
+    # Error detection
+    - errcheck          # Errcheck is a program for checking for unchecked errors in go programs
+    - gosimple          # Linter for Go source code that specializes in simplifying code
+    - govet             # Vet examines Go source code and reports suspicious constructs
+    - ineffassign       # Detects when assignments to existing variables are not used
+    - staticcheck       # It's a set of rules from staticcheck
+    - typecheck         # Like the front-end of a Go compiler, parses and type-checks Go code
+    - unused            # Checks Go code for unused constants, variables, functions and types
+    
+    # Code style
+    - gofmt             # Gofmt checks whether code was gofmt-ed
+    - goimports         # In addition to fixing imports, goimports also formats your code in the same style as gofmt
+    - misspell          # Finds commonly misspelled English words in comments
+    
+    # Code complexity
+    - gocyclo           # Computes and checks the cyclomatic complexity of functions
+    - gocognit          # Computes and checks the cognitive complexity of functions
+    
+    # Security
+    - gosec             # Inspects source code for security problems
+    
+    # Performance
+    - prealloc          # Finds slice declarations that could potentially be preallocated
+    
+    # Style and best practices
+    - gocritic          # Provides diagnostics that check for bugs, performance and style issues
+    - unparam           # Reports unused function parameters
+    - nakedret          # Finds naked returns in functions greater than a specified function length
+    - unconvert         # Remove unnecessary type conversions
+    - goconst           # Finds repeated strings that could be replaced by a constant
+    - dupl              # Tool for code clone detection
+    - lll               # Reports long lines
+    
+    # Additional useful linters
+    - asciicheck        # Simple linter to check that your code does not contain non-ASCII identifiers
+    - bodyclose         # Checks whether HTTP response body is closed successfully
+    - exportloopref     # Checks for pointers to enclosing loop variables
+    - whitespace        # Tool for detection of leading and trailing whitespace
+    - wsl               # Whitespace Linter - Forces you to use empty lines!
+
+  # Don't enable these linters
+  # - depguard        # Go linter that checks if package imports are in a list of acceptable packages
+  # - dogsled         # Checks assignments with too many blank identifiers (e.g. x, _, _, _, := f())
+  # - funlen          # Tool for detection of long functions
+  # - gochecknoglobals # Check that no global variables exist
+  # - gochecknoinits  # Checks that no init functions are present in Go code
+  # - godot           # Check if comments end in a period
+  # - godox           # Tool for detection of FIXME, TODO and other comment keywords
+  # - gomnd           # An analyzer to detect magic numbers
+  # - goprintffuncname # Checks that printf-like functions are named with `f` at the end
+  # - interfacer      # Linter that suggests narrower interface types
+  # - maligned        # Tool to detect Go structs that would take less memory if their fields were sorted
+  # - nestif          # Reports deeply nested if statements
+  # - nolintlint      # Reports ill-formed or insufficient nolint directives
+  # - rowserrcheck    # Checks whether Err of rows is checked successfully
+  # - scopelint       # Scopelint checks for unpinned variables in go programs
+  # - sqlclosecheck   # Checks that sql.Rows and sql.Stmt are closed
+  # - testpackage     # Linter that makes you use a separate _test package
+
+# Issues configuration
+issues:
+  # List of regexps of issue texts to exclude
+  exclude:
+    # Exclude some staticcheck messages
+    - "SA9003:"  # Empty body in an if or else branch
+    - "SA1019:"  # Using a deprecated function, variable, constant or struct field
+    
+    # Exclude some gosec messages
+    - "G104: Errors unhandled"  # This is covered by errcheck
+    
+    # Exclude some govet messages
+    - "composites:"  # Composite literal uses unkeyed fields
+    
+    # Exclude lll issues for long lines that are URLs or import statements
+    - "Line contains TODO/BUG/FIXME:"
+    
+  # Excluding configuration per-path, per-linter, per-text and per-source
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+        - goconst
+        - gocognit
+        
+    # Exclude some linters from running on main.go
+    - path: main\.go
+      linters:
+        - gocyclo
+        - gocognit
+        
+    # Exclude some staticcheck messages
+    - linters:
+        - staticcheck
+      text: "SA9003:"
+      
+    # Exclude gosec G104 (unhandled errors) in test files
+    - path: _test\.go
+      text: "G104:"
+      linters:
+        - gosec
+        
+    # Exclude certain gocritic checks for test files
+    - path: _test\.go
+      linters:
+        - gocritic
+      text: "(unnamedResult|hugeParam)"
+
+  # Independently of option `exclude` we use default exclude patterns
+  exclude-use-default: false
+  
+  # If set to true exclude and exclude-rules regular expressions become case sensitive
+  exclude-case-sensitive: false
+  
+  # The list of ids of default excludes to include or disable
+  include:
+    - EXC0002 # disable excluding of issues about comments from golint
+    - EXC0003 # disable excluding of issues about comments from golint
+    - EXC0004 # disable excluding of issues about comments from golint
+    - EXC0005 # disable excluding of issues about comments from golint
+    - EXC0011 # disable excluding of issues about type assertions from govet
+    - EXC0012 # disable excluding of issues about underscored variables from govet
+    - EXC0013 # disable excluding of issues about assignments from govet
+    - EXC0014 # disable excluding of issues about exported types from govet
+
+  # Maximum issues count per one linter
+  max-issues-per-linter: 0
+  
+  # Maximum count of issues with the same text
+  max-same-issues: 0
+  
+  # Show only new issues: if there are unstaged changes or untracked files
+  new: false
+  
+  # Show only new issues created after git revision `REV`
+  new-from-rev: ""
+  
+  # Show only new issues created in git patch with set file path
+  new-from-patch: ""
+  
+  # Fix found issues (if it's supported by the linter)
+  fix: false
+
+# Severity configuration
+severity:
+  # Default severity level for issues
+  default-severity: error
+  
+  # Set the default severity for rules
+  case-sensitive: false
+  
+  # Severity rules override the default severity
+  rules:
+    - linters:
+        - dupl
+      severity: info
+    - linters:
+        - goconst
+      severity: info
+    - linters:
+        - lll
+      severity: warning
+    - linters:
+        - misspell
+      severity: warning

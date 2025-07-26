@@ -68,6 +68,11 @@ func (f *FileConfigManager) Load() (*types.Config, error) {
 			Type:    types.ConfigCorrupted,
 			Message: "Configuration file is corrupted or invalid JSON",
 			Cause:   err,
+			Suggestions: []string{
+				"Check for syntax errors in the configuration file",
+				"Restore from backup if available",
+				"Remove and recreate the configuration file",
+			},
 		}
 	}
 
@@ -130,6 +135,11 @@ func (f *FileConfigManager) Save(config *types.Config) error {
 			Type:    types.ConfigCorrupted,
 			Message: "Failed to serialize configuration",
 			Cause:   err,
+			Suggestions: []string{
+				"Check for invalid characters in configuration values",
+				"Ensure all environment names and URLs are valid",
+				"Contact support if the issue persists",
+			},
 		}
 	}
 
@@ -455,6 +465,19 @@ func validateAPIKey(apiKey string) error {
 	// Don't allow keys with only whitespace
 	if strings.TrimSpace(apiKey) == "" {
 		return fmt.Errorf("API key cannot be only whitespace")
+	}
+	
+	// Reject API keys that look like obvious script injection attempts
+	// Look for script tags which are clearly malicious
+	if strings.Contains(apiKey, "<script") || strings.Contains(apiKey, "</script>") {
+		return fmt.Errorf("API key contains invalid script tags")
+	}
+	
+	// Reject API keys that look like HTML injection attempts
+	// Be more specific - reject only obvious HTML patterns, not individual < or > characters
+	if strings.Contains(apiKey, "<html") || strings.Contains(apiKey, "</html>") ||
+	   strings.Contains(apiKey, "<body") || strings.Contains(apiKey, "</body>") {
+		return fmt.Errorf("API key contains invalid HTML tags")
 	}
 
 	return nil

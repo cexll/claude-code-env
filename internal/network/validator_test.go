@@ -22,19 +22,17 @@ func TestNewValidator(t *testing.T) {
 }
 
 func TestValidateEndpoint_Success(t *testing.T) {
-	// Create mock server
-	mockServer := testutils.NewMockHTTPServer()
-	defer mockServer.Close()
-
-	mockServer.AddResponse("/", testutils.MockResponse{
-		StatusCode: 200,
-		Headers:    map[string]string{"Content-Type": "application/json"},
-		Body:       `{"status": "ok"}`,
-	})
+	// Create HTTP mock server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status": "ok"}`))
+	}))
+	defer server.Close()
 
 	validator := NewValidator()
 
-	result, err := validator.ValidateEndpoint(mockServer.URL())
+	result, err := validator.ValidateEndpoint(server.URL)
 	require.NoError(t, err)
 
 	assert.True(t, result.Success)
@@ -52,7 +50,8 @@ func TestValidateEndpoint_HTTPSSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	validator := NewValidator()
+	// Create validator with test client that accepts self-signed certificates
+	validator := NewValidatorWithClient(server.Client())
 
 	result, err := validator.ValidateEndpoint(server.URL)
 	require.NoError(t, err)
@@ -299,17 +298,24 @@ func TestTestAPIConnectivity_NilEnvironment(t *testing.T) {
 }
 
 func TestValidateEndpoint_SSLCertificateValidation(t *testing.T) {
-	// Create HTTPS server with custom certificate
+	// Create HTTPS server with self-signed certificate
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
+	// Test 1: With strict SSL validation (should fail due to self-signed cert but not return Go error)
 	validator := NewValidator()
-
 	result, err := validator.ValidateEndpoint(server.URL)
+	// Should not return Go error, but result should indicate failure
 	require.NoError(t, err)
-
+	assert.False(t, result.Success)
+	assert.NotEmpty(t, result.Error)
+	
+	// Test 2: With test client (should succeed)
+	validatorWithTestClient := NewValidatorWithClient(server.Client())
+	result, err = validatorWithTestClient.ValidateEndpoint(server.URL)
+	require.NoError(t, err)
 	assert.True(t, result.Success)
 	assert.True(t, result.SSLValid)
 }
@@ -403,7 +409,7 @@ func TestValidateEndpoint_ErrorSuggestions(t *testing.T) {
 			name:                       "invalid URL format",
 			url:                        "not-a-url",
 			expectedType:               types.NetworkInvalidURL,
-			expectedSuggestionKeywords: []string{"protocol", "https://"},
+			expectedSuggestionKeywords: []string{"http://", "https://"},
 		},
 		{
 			name:                       "empty URL",

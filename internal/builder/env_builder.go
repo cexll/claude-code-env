@@ -3,6 +3,7 @@ package builder
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/cexll/claude-code-env/pkg/types"
 )
@@ -94,9 +95,12 @@ func (evb *EnvironmentVariableBuilder) Build() []string {
 	result := make([]string, len(evb.baseEnv))
 	copy(result, evb.baseEnv)
 
-	// Add custom variables
+	// Add custom variables with security sanitization
 	for key, value := range evb.variables {
-		result = append(result, fmt.Sprintf("%s=%s", key, value))
+		// Sanitize key and value to prevent injection attacks
+		sanitizedKey := sanitizeEnvKey(key)
+		sanitizedValue := sanitizeEnvValue(value)
+		result = append(result, fmt.Sprintf("%s=%s", sanitizedKey, sanitizedValue))
 	}
 
 	return result
@@ -168,4 +172,26 @@ func findEqualSign(s string) int {
 		}
 	}
 	return -1
+}
+
+// sanitizeEnvKey sanitizes environment variable keys to prevent injection
+func sanitizeEnvKey(key string) string {
+	// Remove any characters that could cause issues
+	// Environment variable names should only contain alphanumeric characters and underscores
+	var result strings.Builder
+	for _, r := range key {
+		if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' {
+			result.WriteRune(r)
+		}
+	}
+	return result.String()
+}
+
+// sanitizeEnvValue sanitizes environment variable values to prevent injection
+func sanitizeEnvValue(value string) string {
+	// Remove newlines and carriage returns to prevent injection attacks
+	// Replace them with spaces to preserve content intent
+	sanitized := strings.ReplaceAll(value, "\n", " ")
+	sanitized = strings.ReplaceAll(sanitized, "\r", " ")
+	return sanitized
 }

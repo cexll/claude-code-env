@@ -1,0 +1,261 @@
+name: 'Configuration Validation'
+description: 'Validate configuration consistency across the project (Go versions, .golangci.yml, etc.)'
+author: 'Claude Code Environment Switcher Team'
+
+inputs:
+  validate-go-versions:
+    description: 'Validate Go version consistency across files'
+    required: false
+    default: 'true'
+  validate-golangci-config:
+    description: 'Validate .golangci.yml configuration file exists and is valid'
+    required: false
+    default: 'true'
+  fail-on-mismatch:
+    description: 'Fail the action if configuration mismatches are found'
+    required: false
+    default: 'true'
+
+outputs:
+  go-version-consistent:
+    description: 'Whether Go versions are consistent across all files'
+    value: ${{ steps.validate-versions.outputs.consistent }}
+  go-version-found:
+    description: 'Go version found in go.mod'
+    value: ${{ steps.validate-versions.outputs.go-version }}
+  golangci-config-valid:
+    description: 'Whether .golangci.yml configuration is valid'
+    value: ${{ steps.validate-golangci.outputs.valid }}
+  validation-report:
+    description: 'Path to detailed validation report'
+    value: ${{ steps.generate-report.outputs.report-path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Create validation report directory
+      shell: bash
+      run: |
+        echo "Creating validation report directory..."
+        mkdir -p config-reports
+
+    - name: Validate Go version consistency
+      id: validate-versions
+      shell: bash
+      run: |
+        echo "Validating Go version consistency across files..."
+        
+        # Extract Go version from go.mod (source of truth)
+        if [ ! -f "go.mod" ]; then
+          echo "❌ go.mod file not found"
+          echo "consistent=false" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+        
+        GO_MOD_VERSION=$(grep "^go " go.mod | awk '{print $2}')
+        if [ -z "$GO_MOD_VERSION" ]; then
+          echo "❌ Could not extract Go version from go.mod"
+          echo "consistent=false" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+        
+        echo "Found Go version in go.mod: $GO_MOD_VERSION"
+        echo "go-version=$GO_MOD_VERSION" >> $GITHUB_OUTPUT
+        
+        # Initialize validation variables
+        VERSION_CONSISTENT=true
+        VERSION_ERRORS=""
+        
+        # Check Makefile
+        if [ -f "Makefile" ]; then
+          MAKEFILE_VERSION=$(grep "^GO_VERSION=" Makefile | cut -d'=' -f2)
+          if [ "$MAKEFILE_VERSION" != "$GO_MOD_VERSION" ]; then
+            echo "❌ Makefile GO_VERSION ($MAKEFILE_VERSION) doesn't match go.mod ($GO_MOD_VERSION)"
+            VERSION_CONSISTENT=false
+            VERSION_ERRORS="$VERSION_ERRORS\n- Makefile: Expected $GO_MOD_VERSION, found $MAKEFILE_VERSION"
+          else
+            echo "✅ Makefile GO_VERSION matches go.mod"
+          fi
+        else
+          echo "⚠️ Makefile not found, skipping version check"
+        fi
+        
+        # Check GitHub Actions workflows
+        if [ -d ".github/workflows" ]; then
+          for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
+            if [ -f "$workflow" ]; then
+              # Look for GO_VERSION environment variable
+              WORKFLOW_VERSIONS=$(grep -E "GO_VERSION:?\s*['\"]?[0-9.]+['\"]?" "$workflow" | sed -E "s/.*GO_VERSION:?\s*['\"]?([0-9.]+)['\"]?.*/\1/" | sort -u)
+              
+              for WF_VERSION in $WORKFLOW_VERSIONS; do
+                if [ "$WF_VERSION" != "$GO_MOD_VERSION" ]; then
+                  echo "❌ Workflow $workflow GO_VERSION ($WF_VERSION) doesn't match go.mod ($GO_MOD_VERSION)"
+                  VERSION_CONSISTENT=false
+                  VERSION_ERRORS="$VERSION_ERRORS\n- $(basename "$workflow"): Expected $GO_MOD_VERSION, found $WF_VERSION"
+                else
+                  echo "✅ Workflow $(basename "$workflow") GO_VERSION matches go.mod"
+                fi
+              done
+            fi
+          done
+        fi
+        
+        # Check GitHub Actions (action.yml files)
+        if [ -d ".github/actions" ]; then
+          for action in .github/actions/*/action.yml; do
+            if [ -f "$action" ]; then
+              # Look for go-version default values
+              ACTION_VERSIONS=$(grep -E "default:\s*['\"]?[0-9.]+['\"]?" "$action" | grep -A5 -B5 "go-version" | grep "default:" | sed -E "s/.*default:\s*['\"]?([0-9.]+)['\"]?.*/\1/" | sort -u)
+              
+              for ACTION_VERSION in $ACTION_VERSIONS; do
+                if [ "$ACTION_VERSION" != "$GO_MOD_VERSION" ]; then
+                  echo "❌ Action $action go-version default ($ACTION_VERSION) doesn't match go.mod ($GO_MOD_VERSION)"
+                  VERSION_CONSISTENT=false
+                  VERSION_ERRORS="$VERSION_ERRORS\n- $(basename "$(dirname "$action")"): Expected $GO_MOD_VERSION, found $ACTION_VERSION"
+                else
+                  echo "✅ Action $(basename "$(dirname "$action")") go-version default matches go.mod"
+                fi
+              done
+            fi
+          done
+        fi
+        
+        # Output results
+        echo "consistent=$VERSION_CONSISTENT" >> $GITHUB_OUTPUT
+        
+        if [ "$VERSION_CONSISTENT" = "true" ]; then
+          echo "✅ All Go versions are consistent: $GO_MOD_VERSION"
+        else
+          echo "❌ Go version inconsistencies found:"
+          echo -e "$VERSION_ERRORS"
+          
+          if [ "${{ inputs.fail-on-mismatch }}" = "true" ]; then
+            echo ""
+            echo "To fix these issues:"
+            echo "1. Update Makefile: Change GO_VERSION=1.xx to GO_VERSION=$GO_MOD_VERSION"
+            echo "2. Update workflow files: Change GO_VERSION: 'x.xx' to GO_VERSION: '$GO_MOD_VERSION'"
+            echo "3. Update action files: Change default: 'x.xx' to default: '$GO_MOD_VERSION'"
+            echo ""
+            echo "All Go version declarations must match the version in go.mod ($GO_MOD_VERSION)"
+          fi
+        fi
+
+    - name: Validate .golangci.yml configuration
+      id: validate-golangci
+      if: inputs.validate-golangci-config == 'true'
+      shell: bash
+      run: |
+        echo "Validating .golangci.yml configuration..."
+        
+        CONFIG_VALID=true
+        CONFIG_ERRORS=""
+        
+        # Check if .golangci.yml exists
+        if [ ! -f ".golangci.yml" ]; then
+          echo "❌ .golangci.yml configuration file not found"
+          CONFIG_VALID=false
+          CONFIG_ERRORS="$CONFIG_ERRORS\n- .golangci.yml file is missing"
+        else
+          echo "✅ .golangci.yml configuration file found"
+          
+          # Validate required sections
+          REQUIRED_SECTIONS=("run" "output" "linters-settings" "linters" "issues")
+          for section in "${REQUIRED_SECTIONS[@]}"; do
+            if ! grep -q "^$section:" .golangci.yml; then
+              echo "❌ Required section '$section' not found in .golangci.yml"
+              CONFIG_VALID=false
+              CONFIG_ERRORS="$CONFIG_ERRORS\n- Missing required section: $section"
+            else
+              echo "✅ Found required section: $section"
+            fi
+          done
+          
+          # Validate required linters
+          REQUIRED_LINTERS=("errcheck" "gosimple" "govet" "ineffassign" "staticcheck" "typecheck" "unused" "gosec")
+          for linter in "${REQUIRED_LINTERS[@]}"; do
+            if ! grep -A20 "enable:" .golangci.yml | grep -q "- $linter"; then
+              echo "❌ Required linter '$linter' not enabled in .golangci.yml"
+              CONFIG_VALID=false
+              CONFIG_ERRORS="$CONFIG_ERRORS\n- Missing required linter: $linter"
+            else
+              echo "✅ Found required linter: $linter"
+            fi
+          done
+          
+          # Check if security linters are present
+          SECURITY_LINTERS=("gosec")
+          for linter in "${SECURITY_LINTERS[@]}"; do
+            if ! grep -A20 "enable:" .golangci.yml | grep -q "- $linter"; then
+              echo "⚠️ Security linter '$linter' not enabled"
+            fi
+          done
+        fi
+        
+        echo "valid=$CONFIG_VALID" >> $GITHUB_OUTPUT
+        
+        if [ "$CONFIG_VALID" = "true" ]; then
+          echo "✅ .golangci.yml configuration is valid"
+        else
+          echo "❌ .golangci.yml configuration issues found:"
+          echo -e "$CONFIG_ERRORS"
+          
+          if [ "${{ inputs.fail-on-mismatch }}" = "true" ]; then
+            echo ""
+            echo "To fix these issues:"
+            echo "1. Ensure .golangci.yml exists in the project root"
+            echo "2. Include all required sections: run, output, linters-settings, linters, issues"
+            echo "3. Enable all required linters in the 'linters.enable' section"
+            echo "4. Configure security linters (gosec) for comprehensive code analysis"
+          fi
+        fi
+
+    - name: Generate validation report
+      id: generate-report
+      shell: bash
+      run: |
+        echo "Generating detailed validation report..."
+        
+        REPORT_FILE="config-reports/validation-report.json"
+        
+        cat > "$REPORT_FILE" << EOF
+        {
+          "validation_timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+          "go_version_validation": {
+            "consistent": "${{ steps.validate-versions.outputs.consistent }}",
+            "source_version": "${{ steps.validate-versions.outputs.go-version }}",
+            "status": "${{ steps.validate-versions.outputs.consistent == 'true' && 'PASS' || 'FAIL' }}"
+          },
+          "golangci_config_validation": {
+            "valid": "${{ steps.validate-golangci.outputs.valid }}",
+            "status": "${{ steps.validate-golangci.outputs.valid == 'true' && 'PASS' || 'FAIL' }}"
+          },
+          "overall_status": "${{ steps.validate-versions.outputs.consistent == 'true' && steps.validate-golangci.outputs.valid == 'true' && 'PASS' || 'FAIL' }}"
+        }
+        EOF
+        
+        echo "report-path=$REPORT_FILE" >> $GITHUB_OUTPUT
+        echo "✅ Validation report generated: $REPORT_FILE"
+        
+        # Display summary
+        echo ""
+        echo "=== CONFIGURATION VALIDATION SUMMARY ==="
+        echo "Go Version Consistency: ${{ steps.validate-versions.outputs.consistent == 'true' && '✅ PASS' || '❌ FAIL' }}"
+        echo ".golangci.yml Configuration: ${{ steps.validate-golangci.outputs.valid == 'true' && '✅ PASS' || '❌ FAIL' }}"
+        echo "Overall Status: ${{ steps.validate-versions.outputs.consistent == 'true' && steps.validate-golangci.outputs.valid == 'true' && '✅ PASS' || '❌ FAIL' }}"
+        echo "========================================"
+
+    - name: Fail on validation errors
+      if: |
+        inputs.fail-on-mismatch == 'true' && (
+          steps.validate-versions.outputs.consistent != 'true' ||
+          steps.validate-golangci.outputs.valid != 'true'
+        )
+      shell: bash
+      run: |
+        echo "❌ Configuration validation failed"
+        echo ""
+        echo "One or more configuration validation checks failed."
+        echo "Please review the validation report and fix the identified issues."
+        echo ""
+        echo "Report location: ${{ steps.generate-report.outputs.report-path }}"
+        exit 1

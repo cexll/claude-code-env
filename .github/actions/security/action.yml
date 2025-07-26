@@ -1,0 +1,390 @@
+name: 'Enhanced Security Scanning'
+description: 'Unified security scanning with gosec and govulncheck'
+author: 'Claude Code Environment Switcher Team'
+
+inputs:
+  scan-type:
+    description: 'Security scan type (gosec, govulncheck, both)'
+    required: false
+    default: 'both'
+  severity-threshold:
+    description: 'Minimum severity to fail build (critical, high, medium, low)'
+    required: false
+    default: 'high'
+  output-format:
+    description: 'Report format (json, sarif, text)'
+    required: false
+    default: 'json'
+  output-dir:
+    description: 'Directory to store security reports'
+    required: false
+    default: 'security-results'
+  fail-on-critical:
+    description: 'Fail build on critical vulnerabilities'
+    required: false
+    default: 'true'
+  fail-on-high:
+    description: 'Fail build on high severity vulnerabilities'
+    required: false
+    default: 'true'
+  upload-sarif:
+    description: 'Upload SARIF results to GitHub Security tab'
+    required: false
+    default: 'true'
+
+outputs:
+  gosec-findings:
+    description: 'Number of gosec security findings'
+    value: ${{ steps.run-gosec.outputs.findings-count }}
+  govulncheck-findings:
+    description: 'Number of vulnerability findings'
+    value: ${{ steps.run-govulncheck.outputs.findings-count }}
+  max-severity:
+    description: 'Highest severity finding'
+    value: ${{ steps.analyze-results.outputs.max-severity }}
+  overall-status:
+    description: 'Overall security scan status (pass, warning, fail)'
+    value: ${{ steps.analyze-results.outputs.overall-status }}
+  report-path:
+    description: 'Path to consolidated security report'
+    value: ${{ steps.generate-report.outputs.report-path }}
+  sarif-path:
+    description: 'Path to SARIF format report'
+    value: ${{ steps.generate-sarif.outputs.sarif-path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Create security results directory
+      shell: bash
+      run: |
+        echo "Creating security results directory..."
+        mkdir -p ${{ inputs.output-dir }}
+        
+        # Create subdirectories for different tools
+        mkdir -p ${{ inputs.output-dir }}/gosec
+        mkdir -p ${{ inputs.output-dir }}/govulncheck
+        mkdir -p ${{ inputs.output-dir }}/reports
+
+    - name: Verify tool availability
+      shell: bash
+      run: |
+        echo "Verifying security tool availability..."
+        
+        if [ "${{ inputs.scan-type }}" = "gosec" ] || [ "${{ inputs.scan-type }}" = "both" ]; then
+          if ! command -v gosec &> /dev/null; then
+            echo "❌ gosec is not installed or not in PATH"
+            echo "Please ensure gosec is installed before running security scans"
+            exit 1
+          fi
+          echo "✅ gosec is available: $(gosec -version)"
+        fi
+        
+        if [ "${{ inputs.scan-type }}" = "govulncheck" ] || [ "${{ inputs.scan-type }}" = "both" ]; then
+          if ! command -v govulncheck &> /dev/null; then
+            echo "❌ govulncheck is not installed or not in PATH"
+            echo "Please ensure govulncheck is installed before running vulnerability scans"
+            exit 1
+          fi
+          echo "✅ govulncheck is available: $(govulncheck -version)"
+        fi
+
+    - name: Run gosec security scan
+      id: run-gosec
+      if: inputs.scan-type == 'gosec' || inputs.scan-type == 'both'
+      shell: bash
+      run: |
+        echo "Running gosec security scan..."
+        
+        # Run gosec with JSON output
+        GOSEC_JSON="${{ inputs.output-dir }}/gosec/gosec-report.json"
+        GOSEC_STDOUT="${{ inputs.output-dir }}/gosec/gosec-stdout.log"
+        GOSEC_STDERR="${{ inputs.output-dir }}/gosec/gosec-stderr.log"
+        
+        # Run gosec and capture exit code
+        set +e
+        gosec -fmt json -out "$GOSEC_JSON" ./... 2>"$GOSEC_STDERR" 1>"$GOSEC_STDOUT"
+        GOSEC_EXIT_CODE=$?
+        set -e
+        
+        echo "gosec exit code: $GOSEC_EXIT_CODE"
+        
+        # Parse results
+        GOSEC_FINDINGS=0
+        if [ -f "$GOSEC_JSON" ] && [ -s "$GOSEC_JSON" ]; then
+          # Count findings from JSON report
+          GOSEC_FINDINGS=$(jq -r '.Issues // [] | length' "$GOSEC_JSON" 2>/dev/null || echo "0")
+          echo "gosec found $GOSEC_FINDINGS security issues"
+          
+          # Display summary
+          if [ "$GOSEC_FINDINGS" -gt 0 ]; then
+            echo "📋 gosec findings summary:"
+            jq -r '.Issues[] | "  - \(.severity): \(.what) (\(.file):\(.line))"' "$GOSEC_JSON" | head -10
+            
+            if [ "$GOSEC_FINDINGS" -gt 10 ]; then
+              echo "  ... and $(($GOSEC_FINDINGS - 10)) more findings"
+            fi
+          fi
+        else
+          echo "⚠️ gosec report is empty or missing"
+        fi
+        
+        echo "findings-count=$GOSEC_FINDINGS" >> $GITHUB_OUTPUT
+        
+        # Also run gosec in text mode for human-readable output
+        if [ "${{ inputs.output-format }}" = "text" ] || [ "${{ inputs.output-format }}" = "both" ]; then
+          echo "Generating human-readable gosec report..."
+          gosec ./... 2>"${{ inputs.output-dir }}/gosec/gosec-text-stderr.log" 1>"${{ inputs.output-dir }}/gosec/gosec-text-report.txt" || true
+        fi
+
+    - name: Run govulncheck vulnerability scan
+      id: run-govulncheck
+      if: inputs.scan-type == 'govulncheck' || inputs.scan-type == 'both'
+      shell: bash
+      run: |
+        echo "Running govulncheck vulnerability scan..."
+        
+        # Run govulncheck with JSON output
+        GOVULN_JSON="${{ inputs.output-dir }}/govulncheck/govulncheck-report.json"
+        GOVULN_STDOUT="${{ inputs.output-dir }}/govulncheck/govulncheck-stdout.log"
+        GOVULN_STDERR="${{ inputs.output-dir }}/govulncheck/govulncheck-stderr.log"
+        
+        # Run govulncheck and capture exit code
+        set +e
+        govulncheck -json ./... 2>"$GOVULN_STDERR" 1>"$GOVULN_JSON"
+        GOVULN_EXIT_CODE=$?
+        set -e
+        
+        echo "govulncheck exit code: $GOVULN_EXIT_CODE"
+        
+        # Parse results
+        GOVULN_FINDINGS=0
+        if [ -f "$GOVULN_JSON" ] && [ -s "$GOVULN_JSON" ]; then
+          # Count vulnerability findings
+          GOVULN_FINDINGS=$(jq -r '[.[] | select(.finding)] | length' "$GOVULN_JSON" 2>/dev/null || echo "0")
+          echo "govulncheck found $GOVULN_FINDINGS vulnerabilities"
+          
+          # Display summary
+          if [ "$GOVULN_FINDINGS" -gt 0 ]; then
+            echo "🚨 govulncheck vulnerability summary:"
+            jq -r '.[] | select(.finding) | "  - \(.finding.osv): \(.finding.fixed_version // "No fix available")"' "$GOVULN_JSON" | head -10
+            
+            if [ "$GOVULN_FINDINGS" -gt 10 ]; then
+              echo "  ... and $(($GOVULN_FINDINGS - 10)) more vulnerabilities"
+            fi
+          fi
+        else
+          echo "✅ No vulnerabilities found or govulncheck report is empty"
+        fi
+        
+        echo "findings-count=$GOVULN_FINDINGS" >> $GITHUB_OUTPUT
+        
+        # Also run govulncheck in text mode for human-readable output
+        if [ "${{ inputs.output-format }}" = "text" ] || [ "${{ inputs.output-format }}" = "both" ]; then
+          echo "Generating human-readable govulncheck report..."
+          govulncheck ./... 2>"${{ inputs.output-dir }}/govulncheck/govulncheck-text-stderr.log" 1>"${{ inputs.output-dir }}/govulncheck/govulncheck-text-report.txt" || true
+        fi
+
+    - name: Analyze security results
+      id: analyze-results
+      shell: bash
+      run: |
+        echo "Analyzing security scan results..."
+        
+        GOSEC_FINDINGS=${{ steps.run-gosec.outputs.findings-count || '0' }}
+        GOVULN_FINDINGS=${{ steps.run-govulncheck.outputs.findings-count || '0' }}
+        
+        echo "Total gosec findings: $GOSEC_FINDINGS"
+        echo "Total govulncheck findings: $GOVULN_FINDINGS"
+        
+        # Determine maximum severity
+        MAX_SEVERITY="none"
+        OVERALL_STATUS="pass"
+        
+        # Analyze gosec results for severity
+        if [ -f "${{ inputs.output-dir }}/gosec/gosec-report.json" ] && [ "$GOSEC_FINDINGS" -gt 0 ]; then
+          # Check for critical/high severity gosec findings
+          HIGH_GOSEC=$(jq -r '[.Issues[] | select(.severity == "HIGH")] | length' "${{ inputs.output-dir }}/gosec/gosec-report.json" 2>/dev/null || echo "0")
+          MEDIUM_GOSEC=$(jq -r '[.Issues[] | select(.severity == "MEDIUM")] | length' "${{ inputs.output-dir }}/gosec/gosec-report.json" 2>/dev/null || echo "0")
+          
+          if [ "$HIGH_GOSEC" -gt 0 ]; then
+            MAX_SEVERITY="high"
+            OVERALL_STATUS="fail"
+          elif [ "$MEDIUM_GOSEC" -gt 0 ] && [ "$MAX_SEVERITY" = "none" ]; then
+            MAX_SEVERITY="medium"
+            OVERALL_STATUS="warning"
+          fi
+          
+          echo "gosec HIGH severity findings: $HIGH_GOSEC"
+          echo "gosec MEDIUM severity findings: $MEDIUM_GOSEC"
+        fi
+        
+        # Analyze govulncheck results (all vulnerabilities are considered high severity)
+        if [ "$GOVULN_FINDINGS" -gt 0 ]; then
+          MAX_SEVERITY="high"
+          OVERALL_STATUS="fail"
+          echo "govulncheck vulnerabilities are considered HIGH severity"
+        fi
+        
+        echo "max-severity=$MAX_SEVERITY" >> $GITHUB_OUTPUT
+        echo "overall-status=$OVERALL_STATUS" >> $GITHUB_OUTPUT
+        
+        echo "Maximum severity found: $MAX_SEVERITY"
+        echo "Overall status: $OVERALL_STATUS"
+
+    - name: Generate consolidated security report
+      id: generate-report
+      shell: bash
+      run: |
+        echo "Generating consolidated security report..."
+        
+        REPORT_FILE="${{ inputs.output-dir }}/reports/consolidated-security-report.json"
+        
+        cat > "$REPORT_FILE" << EOF
+        {
+          "scan_timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+          "scan_type": "${{ inputs.scan-type }}",
+          "severity_threshold": "${{ inputs.severity-threshold }}",
+          "gosec": {
+            "enabled": "${{ inputs.scan-type == 'gosec' || inputs.scan-type == 'both' }}",
+            "findings_count": "${{ steps.run-gosec.outputs.findings-count || '0' }}",
+            "status": "${{ steps.run-gosec.outputs.findings-count == '0' && 'clean' || 'findings_detected' }}"
+          },
+          "govulncheck": {
+            "enabled": "${{ inputs.scan-type == 'govulncheck' || inputs.scan-type == 'both' }}",
+            "findings_count": "${{ steps.run-govulncheck.outputs.findings-count || '0' }}",
+            "status": "${{ steps.run-govulncheck.outputs.findings-count == '0' && 'clean' || 'vulnerabilities_detected' }}"
+          },
+          "analysis": {
+            "max_severity": "${{ steps.analyze-results.outputs.max-severity }}",
+            "overall_status": "${{ steps.analyze-results.outputs.overall-status }}",
+            "total_findings": $(( ${{ steps.run-gosec.outputs.findings-count || '0' }} + ${{ steps.run-govulncheck.outputs.findings-count || '0' }} ))
+          }
+        }
+        EOF
+        
+        echo "report-path=$REPORT_FILE" >> $GITHUB_OUTPUT
+        echo "✅ Consolidated report generated: $REPORT_FILE"
+
+    - name: Generate SARIF report
+      id: generate-sarif
+      if: inputs.upload-sarif == 'true'
+      shell: bash
+      run: |
+        echo "Generating SARIF format report for GitHub Security tab..."
+        
+        SARIF_FILE="${{ inputs.output-dir }}/reports/security-results.sarif"
+        
+        # Basic SARIF structure
+        cat > "$SARIF_FILE" << 'EOF'
+        {
+          "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+          "version": "2.1.0",
+          "runs": [
+            {
+              "tool": {
+                "driver": {
+                  "name": "Enhanced Security Scanning",
+                  "version": "1.0.0",
+                  "informationUri": "https://github.com/cexll/claude-code-env"
+                }
+              },
+              "results": []
+            }
+          ]
+        }
+        EOF
+        
+        echo "sarif-path=$SARIF_FILE" >> $GITHUB_OUTPUT
+        echo "✅ SARIF report generated: $SARIF_FILE"
+
+    - name: Display security scan summary
+      shell: bash
+      run: |
+        echo ""
+        echo "=== SECURITY SCAN SUMMARY ==="
+        echo "Scan Type: ${{ inputs.scan-type }}"
+        echo "Severity Threshold: ${{ inputs.severity-threshold }}"
+        echo ""
+        
+        if [ "${{ inputs.scan-type }}" = "gosec" ] || [ "${{ inputs.scan-type }}" = "both" ]; then
+          echo "gosec Results: ${{ steps.run-gosec.outputs.findings-count || '0' }} findings"
+        fi
+        
+        if [ "${{ inputs.scan-type }}" = "govulncheck" ] || [ "${{ inputs.scan-type }}" = "both" ]; then
+          echo "govulncheck Results: ${{ steps.run-govulncheck.outputs.findings-count || '0' }} vulnerabilities"
+        fi
+        
+        echo ""
+        echo "Maximum Severity: ${{ steps.analyze-results.outputs.max-severity }}"
+        echo "Overall Status: ${{ steps.analyze-results.outputs.overall-status }}"
+        echo ""
+        echo "Reports Available:"
+        echo "- Consolidated: ${{ steps.generate-report.outputs.report-path }}"
+        if [ "${{ inputs.upload-sarif }}" = "true" ]; then
+          echo "- SARIF: ${{ steps.generate-sarif.outputs.sarif-path }}"
+        fi
+        echo "=========================="
+
+    - name: Evaluate failure conditions
+      shell: bash
+      run: |
+        echo "Evaluating failure conditions..."
+        
+        MAX_SEVERITY="${{ steps.analyze-results.outputs.max-severity }}"
+        SHOULD_FAIL=false
+        
+        # Check critical vulnerabilities
+        if [ "${{ inputs.fail-on-critical }}" = "true" ] && [ "$MAX_SEVERITY" = "critical" ]; then
+          echo "❌ Critical vulnerabilities found and fail-on-critical is enabled"
+          SHOULD_FAIL=true
+        fi
+        
+        # Check high severity vulnerabilities
+        if [ "${{ inputs.fail-on-high }}" = "true" ] && [ "$MAX_SEVERITY" = "high" ]; then
+          echo "❌ High severity vulnerabilities found and fail-on-high is enabled"
+          SHOULD_FAIL=true
+        fi
+        
+        # Check against severity threshold
+        case "${{ inputs.severity-threshold }}" in
+          "critical")
+            if [ "$MAX_SEVERITY" = "critical" ]; then
+              echo "❌ Severity threshold (critical) exceeded"
+              SHOULD_FAIL=true
+            fi
+            ;;
+          "high")
+            if [ "$MAX_SEVERITY" = "critical" ] || [ "$MAX_SEVERITY" = "high" ]; then
+              echo "❌ Severity threshold (high) exceeded"
+              SHOULD_FAIL=true
+            fi
+            ;;
+          "medium")
+            if [ "$MAX_SEVERITY" = "critical" ] || [ "$MAX_SEVERITY" = "high" ] || [ "$MAX_SEVERITY" = "medium" ]; then
+              echo "❌ Severity threshold (medium) exceeded"
+              SHOULD_FAIL=true
+            fi
+            ;;
+          "low")
+            if [ "$MAX_SEVERITY" != "none" ]; then
+              echo "❌ Severity threshold (low) exceeded"
+              SHOULD_FAIL=true
+            fi
+            ;;
+        esac
+        
+        if [ "$SHOULD_FAIL" = "true" ]; then
+          echo ""
+          echo "Security scan failed due to policy violations."
+          echo "Review the security reports and address the identified issues."
+          echo ""
+          echo "Remediation steps:"
+          echo "1. Review detailed reports in the ${{ inputs.output-dir }} directory"
+          echo "2. Address high and critical severity findings"
+          echo "3. Update vulnerable dependencies"
+          echo "4. Re-run security scans to verify fixes"
+          exit 1
+        else
+          echo "✅ Security scan passed all policy checks"
+        fi

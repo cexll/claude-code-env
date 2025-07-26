@@ -70,6 +70,24 @@ type NetworkDiagnostics struct {
 	CertIssuer     string        `json:"cert_issuer,omitempty"`
 }
 
+// NewValidatorWithClient creates a new validator with a custom HTTP client (for testing)
+func NewValidatorWithClient(client *http.Client) *Validator {
+	cache := &ValidationCache{
+		results:    make(map[string]*CachedResult),
+		cleanupTTL: 10 * time.Minute,
+		lastClean:  time.Now(),
+	}
+
+	return &Validator{
+		client:     client,
+		cache:      cache,
+		timeout:    30 * time.Second,
+		cacheTTL:   5 * time.Minute,
+		maxRetries: 3,
+		retryDelay: 1 * time.Second,
+	}
+}
+
 // NewValidator creates a new network validator with default configuration.
 //
 // The validator is initialized with:
@@ -191,6 +209,8 @@ func (v *Validator) performValidation(urlStr string) (*types.NetworkValidationRe
 
 	if err != nil {
 		result.Error = err.Error()
+		// Network errors (SSL, timeout, connection issues) are recorded in result but don't return Go error
+		// Only URL validation errors return Go errors
 		return result, nil
 	}
 

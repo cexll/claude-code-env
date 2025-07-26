@@ -50,7 +50,8 @@ func TestEnvironmentVariableBuilder_FluentInterface(t *testing.T) {
 		assert.True(t, containsVar(result, "ANTHROPIC_BASE_URL", env.BaseURL))
 		assert.True(t, containsVar(result, "ANTHROPIC_API_KEY", env.APIKey))
 		assert.True(t, containsVar(result, "ANTHROPIC_MODEL", env.Model))
-		assert.True(t, containsVar(result, "ANTHROPIC_HEADER_X-Custom", "value"))
+		// Fix: The header key gets sanitized, so X-Custom becomes XCustom
+		assert.True(t, containsVar(result, "ANTHROPIC_HEADER_XCustom", "value"))
 		assert.True(t, containsVar(result, "CUSTOM_VAR", "custom_value"))
 	})
 

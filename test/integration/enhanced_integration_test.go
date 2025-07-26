@@ -1,4 +1,5 @@
 // Package integration provides comprehensive end-to-end testing for CCE enhanced features
+// and GitHub Actions CI/CD workflow validation
 package integration
 
 import (
@@ -499,7 +500,7 @@ func TestSecurityIntegration(t *testing.T) {
 				"perm-test": {
 					Name:    "perm-test",
 					BaseURL: "https://api.test.com/v1",
-					APIKey:  "test-key",
+					APIKey:  "test-key-1234567890", // Ensure key is longer than 10 characters
 				},
 			},
 		}

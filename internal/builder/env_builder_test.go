@@ -289,7 +289,7 @@ func TestBuilderChaining(t *testing.T) {
 	assert.Contains(t, envStr, "ANTHROPIC_BASE_URL=https://api.test.com")
 	assert.Contains(t, envStr, "ANTHROPIC_API_KEY=test-api-key")
 	assert.Contains(t, envStr, "ANTHROPIC_MODEL=claude-3-opus")
-	assert.Contains(t, envStr, "ANTHROPIC_HEADER_X-Custom=custom")
+	assert.Contains(t, envStr, "ANTHROPIC_HEADER_XCustom=custom")
 	assert.Contains(t, envStr, "EXTRA_VAR=extra_value")
 }
 

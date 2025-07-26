@@ -371,13 +371,14 @@ func TestClaudeCodeIntegrationWorkflow(t *testing.T) {
 	})
 
 	t.Run("LaunchWithoutEnvironment", func(t *testing.T) {
-		// Test launching Claude Code without environment (should work)
+		// Test launching Claude Code without environment (should fail)
 		params := &types.LaunchParameters{
 			Environment: nil,
 			Arguments:   []string{"--version"},
 		}
 		err := testEnv.Launcher.Launch(params)
-		require.NoError(t, err)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Environment is required")
 	})
 
 	t.Run("ValidateClaudeCodePath", func(t *testing.T) {
@@ -506,7 +507,7 @@ func TestConfigurationPersistence(t *testing.T) {
 	t.Run("ConfigurationIntegrity", func(t *testing.T) {
 		// Create comprehensive test configuration
 		originalConfig := &types.Config{
-			Version:    "1.0.0",
+			Version:    "1.1.0", // Use current version instead of testing migration here
 			DefaultEnv: "test",
 			Environments: map[string]types.Environment{
 				"test": {
