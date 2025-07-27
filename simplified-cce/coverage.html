@@ -1,0 +1,991 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>simplified-cce: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">simplified-cce/config.go (72.2%)</option>
+				
+				<option value="file1">simplified-cce/launcher.go (35.4%)</option>
+				
+				<option value="file2">simplified-cce/main.go (78.6%)</option>
+				
+				<option value="file3">simplified-cce/ui.go (34.8%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "encoding/json"
+        "fmt"
+        "io/ioutil"
+        "os"
+        "path/filepath"
+)
+
+// configPathOverride allows tests to override the config path
+var configPathOverride string
+
+// getConfigPath returns the path to the configuration file
+func getConfigPath() (string, error) <span class="cov8" title="1">{
+        if configPathOverride != "" </span><span class="cov8" title="1">{
+                return configPathOverride, nil
+        }</span>
+        
+        <span class="cov8" title="1">home, err := os.UserHomeDir()
+        if err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("failed to get user home directory: %w", err)
+        }</span>
+        <span class="cov8" title="1">return filepath.Join(home, ".claude-code-env", "config.json"), nil</span>
+}
+
+// ensureConfigDir creates the configuration directory with proper permissions
+func ensureConfigDir() error <span class="cov8" title="1">{
+        configPath, err := getConfigPath()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("configuration directory creation failed: %w", err)
+        }</span>
+        
+        <span class="cov8" title="1">dir := filepath.Dir(configPath)
+        
+        // Check if directory already exists
+        if info, err := os.Stat(dir); err == nil </span><span class="cov8" title="1">{
+                if !info.IsDir() </span><span class="cov8" title="1">{
+                        return fmt.Errorf("configuration path exists but is not a directory: %s", dir)
+                }</span>
+                <span class="cov8" title="1">return nil</span>
+        } else<span class="cov8" title="1"> if !os.IsNotExist(err) </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to check configuration directory: %w", err)
+        }</span>
+        
+        // Create directory with 0700 permissions (owner read/write/execute only)
+        <span class="cov8" title="1">if err := os.MkdirAll(dir, 0700); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create configuration directory: %w", err)
+        }</span>
+        
+        // Verify permissions were set correctly
+        <span class="cov8" title="1">if info, err := os.Stat(dir); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to verify configuration directory: %w", err)
+        }</span> else<span class="cov8" title="1"> if info.Mode().Perm() != 0700 </span><span class="cov0" title="0">{
+                // Try to fix permissions
+                if err := os.Chmod(dir, 0700); err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to set configuration directory permissions: %w", err)
+                }</span>
+        }
+        
+        <span class="cov8" title="1">return nil</span>
+}
+
+// loadConfig reads and parses the configuration file with comprehensive error handling
+func loadConfig() (Config, error) <span class="cov8" title="1">{
+        configPath, err := getConfigPath()
+        if err != nil </span><span class="cov0" title="0">{
+                return Config{}, fmt.Errorf("configuration loading failed: %w", err)
+        }</span>
+        
+        // Check if file exists
+        <span class="cov8" title="1">if _, err := os.Stat(configPath); os.IsNotExist(err) </span><span class="cov8" title="1">{
+                // Return empty configuration if file doesn't exist (not an error)
+                return Config{Environments: []Environment{}}, nil
+        }</span> else<span class="cov8" title="1"> if err != nil </span><span class="cov0" title="0">{
+                return Config{}, fmt.Errorf("configuration file access failed: %w", err)
+        }</span>
+        
+        // Read file contents
+        <span class="cov8" title="1">data, err := ioutil.ReadFile(configPath)
+        if err != nil </span><span class="cov8" title="1">{
+                return Config{}, fmt.Errorf("configuration file read failed: %w", err)
+        }</span>
+        
+        // Handle empty file
+        <span class="cov8" title="1">if len(data) == 0 </span><span class="cov0" title="0">{
+                return Config{Environments: []Environment{}}, nil
+        }</span>
+        
+        // Parse JSON
+        <span class="cov8" title="1">var config Config
+        if err := json.Unmarshal(data, &amp;config); err != nil </span><span class="cov8" title="1">{
+                return Config{}, fmt.Errorf("configuration file parsing failed (invalid JSON): %w", err)
+        }</span>
+        
+        // Initialize environments slice if nil
+        <span class="cov8" title="1">if config.Environments == nil </span><span class="cov0" title="0">{
+                config.Environments = []Environment{}
+        }</span>
+        
+        // Validate all environments
+        <span class="cov8" title="1">for i, env := range config.Environments </span><span class="cov8" title="1">{
+                if err := validateEnvironment(env); err != nil </span><span class="cov8" title="1">{
+                        return Config{}, fmt.Errorf("configuration validation failed for environment %d (%s): %w", i, env.Name, err)
+                }</span>
+        }
+        
+        <span class="cov8" title="1">return config, nil</span>
+}
+
+// saveConfig writes the configuration to file with atomic operations and proper permissions
+func saveConfig(config Config) error <span class="cov8" title="1">{
+        // Validate configuration before saving
+        for i, env := range config.Environments </span><span class="cov8" title="1">{
+                if err := validateEnvironment(env); err != nil </span><span class="cov8" title="1">{
+                        return fmt.Errorf("configuration save failed - invalid environment %d (%s): %w", i, env.Name, err)
+                }</span>
+        }
+        
+        // Ensure configuration directory exists
+        <span class="cov8" title="1">if err := ensureConfigDir(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("configuration save failed: %w", err)
+        }</span>
+        
+        <span class="cov8" title="1">configPath, err := getConfigPath()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("configuration save failed: %w", err)
+        }</span>
+        
+        // Marshal to JSON with proper formatting
+        <span class="cov8" title="1">data, err := json.MarshalIndent(config, "", "  ")
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("configuration serialization failed: %w", err)
+        }</span>
+        
+        // Use atomic write pattern (temp file + rename)
+        <span class="cov8" title="1">tempPath := configPath + ".tmp"
+        
+        // Write to temporary file with 0600 permissions (owner read/write only)
+        if err := ioutil.WriteFile(tempPath, data, 0600); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("configuration temporary file write failed: %w", err)
+        }</span>
+        
+        // Verify temporary file permissions
+        <span class="cov8" title="1">if info, err := os.Stat(tempPath); err != nil </span><span class="cov0" title="0">{
+                // Clean up temp file
+                os.Remove(tempPath)
+                return fmt.Errorf("configuration temporary file verification failed: %w", err)
+        }</span> else<span class="cov8" title="1"> if info.Mode().Perm() != 0600 </span><span class="cov0" title="0">{
+                // Try to fix permissions
+                if err := os.Chmod(tempPath, 0600); err != nil </span><span class="cov0" title="0">{
+                        os.Remove(tempPath)
+                        return fmt.Errorf("configuration temporary file permission setting failed: %w", err)
+                }</span>
+        }
+        
+        // Atomic move (rename) from temp to final location
+        <span class="cov8" title="1">if err := os.Rename(tempPath, configPath); err != nil </span><span class="cov0" title="0">{
+                // Clean up temp file on error
+                os.Remove(tempPath)
+                return fmt.Errorf("configuration file save failed (atomic move): %w", err)
+        }</span>
+        
+        // Verify final file permissions
+        <span class="cov8" title="1">if info, err := os.Stat(configPath); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("configuration file verification failed: %w", err)
+        }</span> else<span class="cov8" title="1"> if info.Mode().Perm() != 0600 </span><span class="cov0" title="0">{
+                // Try to fix permissions
+                if err := os.Chmod(configPath, 0600); err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("configuration file permission setting failed: %w", err)
+                }</span>
+        }
+        
+        <span class="cov8" title="1">return nil</span>
+}
+
+// findEnvironmentByName searches for an environment by name and returns its index
+func findEnvironmentByName(config Config, name string) (int, bool) <span class="cov8" title="1">{
+        for i, env := range config.Environments </span><span class="cov8" title="1">{
+                if env.Name == name </span><span class="cov8" title="1">{
+                        return i, true
+                }</span>
+        }
+        <span class="cov8" title="1">return -1, false</span>
+}
+
+// addEnvironmentToConfig adds a new environment to the configuration after validation
+func addEnvironmentToConfig(config *Config, env Environment) error <span class="cov8" title="1">{
+        // Validate environment first
+        if err := validateEnvironment(env); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("environment addition failed: %w", err)
+        }</span>
+        
+        // Check for duplicate name
+        <span class="cov8" title="1">if _, exists := findEnvironmentByName(*config, env.Name); exists </span><span class="cov8" title="1">{
+                return fmt.Errorf("environment with name '%s' already exists", env.Name)
+        }</span>
+        
+        // Add to configuration
+        <span class="cov8" title="1">config.Environments = append(config.Environments, env)
+        return nil</span>
+}
+
+// removeEnvironmentFromConfig removes an environment from the configuration
+func removeEnvironmentFromConfig(config *Config, name string) error <span class="cov8" title="1">{
+        index, exists := findEnvironmentByName(*config, name)
+        if !exists </span><span class="cov8" title="1">{
+                return fmt.Errorf("environment '%s' not found", name)
+        }</span>
+        
+        // Remove environment by copying elements
+        <span class="cov8" title="1">config.Environments = append(config.Environments[:index], config.Environments[index+1:]...)
+        return nil</span>
+}</pre>
+		
+		<pre class="file" id="file1" style="display: none">package main
+
+import (
+        "fmt"
+        "os"
+        "os/exec"
+        "syscall"
+)
+
+// checkClaudeCodeExists verifies that claude-code is available in PATH
+func checkClaudeCodeExists() error <span class="cov8" title="1">{
+        path, err := exec.LookPath("claude-code")
+        if err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("claude-code not found in PATH - please install Claude Code CLI first")
+        }</span>
+        
+        // Additional check to ensure the file is executable
+        <span class="cov0" title="0">if info, err := os.Stat(path); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("claude-code path verification failed: %w", err)
+        }</span> else<span class="cov0" title="0"> if info.Mode()&amp;0111 == 0 </span><span class="cov0" title="0">{
+                return fmt.Errorf("claude-code found but not executable: %s", path)
+        }</span>
+        
+        <span class="cov0" title="0">return nil</span>
+}
+
+// prepareEnvironment sets up environment variables for Claude Code execution
+func prepareEnvironment(env Environment) ([]string, error) <span class="cov8" title="1">{
+        // Validate environment before setting variables
+        if err := validateEnvironment(env); err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("environment preparation failed: %w", err)
+        }</span>
+        
+        // Get current environment
+        <span class="cov8" title="1">currentEnv := os.Environ()
+        
+        // Create new environment with Anthropic variables
+        newEnv := make([]string, 0, len(currentEnv)+2)
+        
+        // Copy existing environment variables (except Anthropic ones)
+        for _, envVar := range currentEnv </span><span class="cov8" title="1">{
+                // Skip existing Anthropic variables to avoid conflicts
+                if len(envVar) &gt;= 9 &amp;&amp; envVar[:9] != "ANTHROPIC" </span><span class="cov8" title="1">{
+                        newEnv = append(newEnv, envVar)
+                }</span>
+        }
+        
+        // Add Anthropic-specific environment variables
+        <span class="cov8" title="1">newEnv = append(newEnv, fmt.Sprintf("ANTHROPIC_BASE_URL=%s", env.URL))
+        newEnv = append(newEnv, fmt.Sprintf("ANTHROPIC_API_KEY=%s", env.APIKey))
+        
+        return newEnv, nil</span>
+}
+
+// launchClaudeCode executes claude-code with the specified environment and arguments
+func launchClaudeCode(env Environment, args []string) error <span class="cov8" title="1">{
+        // Check if claude-code exists and is executable
+        if err := checkClaudeCodeExists(); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("Claude Code launcher failed: %w", err)
+        }</span>
+        
+        // Prepare environment variables
+        <span class="cov0" title="0">envVars, err := prepareEnvironment(env)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("Claude Code launcher failed: %w", err)
+        }</span>
+        
+        // Find claude-code executable path
+        <span class="cov0" title="0">claudePath, err := exec.LookPath("claude-code")
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("Claude Code launcher failed - executable not found: %w", err)
+        }</span>
+        
+        // Prepare command arguments
+        <span class="cov0" title="0">cmdArgs := append([]string{"claude-code"}, args...)
+        
+        // Execute claude-code and replace current process (Unix exec behavior)
+        if err := syscall.Exec(claudePath, cmdArgs, envVars); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("Claude Code execution failed: %w", err)
+        }</span>
+        
+        // This point should never be reached if exec succeeds
+        <span class="cov0" title="0">return fmt.Errorf("unexpected return from Claude Code execution")</span>
+}
+
+// launchClaudeCodeWithOutput executes claude-code and waits for it to complete (for testing)
+func launchClaudeCodeWithOutput(env Environment, args []string) error <span class="cov8" title="1">{
+        // Check if claude-code exists and is executable
+        if err := checkClaudeCodeExists(); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("Claude Code launcher failed: %w", err)
+        }</span>
+        
+        // Prepare environment variables
+        <span class="cov0" title="0">envVars, err := prepareEnvironment(env)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("Claude Code launcher failed: %w", err)
+        }</span>
+        
+        // Create command
+        <span class="cov0" title="0">cmd := exec.Command("claude-code", args...)
+        cmd.Env = envVars
+        cmd.Stdout = os.Stdout
+        cmd.Stderr = os.Stderr
+        cmd.Stdin = os.Stdin
+        
+        // Start the process
+        if err := cmd.Start(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("Claude Code process start failed: %w", err)
+        }</span>
+        
+        // Wait for completion and handle exit code
+        <span class="cov0" title="0">if err := cmd.Wait(); err != nil </span><span class="cov0" title="0">{
+                if exitError, ok := err.(*exec.ExitError); ok </span><span class="cov0" title="0">{
+                        // Get exit code from the process
+                        if status, ok := exitError.Sys().(syscall.WaitStatus); ok </span><span class="cov0" title="0">{
+                                // Exit with the same code as claude-code
+                                os.Exit(status.ExitStatus())
+                        }</span>
+                }
+                <span class="cov0" title="0">return fmt.Errorf("Claude Code execution failed: %w", err)</span>
+        }
+        
+        <span class="cov0" title="0">return nil</span>
+}</pre>
+		
+		<pre class="file" id="file2" style="display: none">package main
+
+import (
+        "flag"
+        "fmt"
+        "net/url"
+        "os"
+        "regexp"
+        "strings"
+)
+
+// Environment represents a single Claude Code API configuration
+type Environment struct {
+        Name   string `json:"name"`
+        URL    string `json:"url"`
+        APIKey string `json:"api_key"`
+}
+
+// Config represents the complete configuration with all environments
+type Config struct {
+        Environments []Environment `json:"environments"`
+}
+
+// validateEnvironment performs comprehensive validation of environment data
+func validateEnvironment(env Environment) error <span class="cov8" title="1">{
+        if err := validateName(env.Name); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("invalid name: %w", err)
+        }</span>
+        <span class="cov8" title="1">if err := validateURL(env.URL); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("invalid URL: %w", err)
+        }</span>
+        <span class="cov8" title="1">if err := validateAPIKey(env.APIKey); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("invalid API key: %w", err)
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+// validateName validates environment name format and length
+func validateName(name string) error <span class="cov8" title="1">{
+        if name == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("name cannot be empty")
+        }</span>
+        <span class="cov8" title="1">if len(name) &gt; 50 </span><span class="cov8" title="1">{
+                return fmt.Errorf("name too long (max 50 characters)")
+        }</span>
+        // Allow alphanumeric, hyphens, underscores
+        <span class="cov8" title="1">matched, err := regexp.MatchString("^[a-zA-Z0-9_-]+$", name)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("name validation failed: %w", err)
+        }</span>
+        <span class="cov8" title="1">if !matched </span><span class="cov8" title="1">{
+                return fmt.Errorf("name contains invalid characters (use only letters, numbers, hyphens, underscores)")
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+// validateURL validates URL using net/url.Parse with comprehensive error checking
+func validateURL(urlStr string) error <span class="cov8" title="1">{
+        if urlStr == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("URL cannot be empty")
+        }</span>
+        
+        <span class="cov8" title="1">parsed, err := url.Parse(urlStr)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("invalid URL format: %w", err)
+        }</span>
+        
+        <span class="cov8" title="1">if parsed.Scheme != "http" &amp;&amp; parsed.Scheme != "https" </span><span class="cov8" title="1">{
+                return fmt.Errorf("URL must use http or https scheme")
+        }</span>
+        
+        <span class="cov8" title="1">if parsed.Host == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("URL must have a valid host")
+        }</span>
+        
+        <span class="cov8" title="1">return nil</span>
+}
+
+// validateAPIKey performs basic API key format validation
+func validateAPIKey(apiKey string) error <span class="cov8" title="1">{
+        if apiKey == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("API key cannot be empty")
+        }</span>
+        <span class="cov8" title="1">if len(apiKey) &lt; 10 </span><span class="cov8" title="1">{
+                return fmt.Errorf("API key too short (minimum 10 characters)")
+        }</span>
+        <span class="cov8" title="1">if len(apiKey) &gt; 200 </span><span class="cov8" title="1">{
+                return fmt.Errorf("API key too long (maximum 200 characters)")
+        }</span>
+        // Basic format check for Anthropic API keys
+        <span class="cov8" title="1">if !strings.HasPrefix(apiKey, "sk-ant-") &amp;&amp; !strings.Contains(apiKey, "ant-") </span><span class="cov8" title="1">{
+                return fmt.Errorf("API key should be an Anthropic API key")
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+func main() <span class="cov0" title="0">{
+        if err := handleCommand(os.Args[1:]); err != nil </span><span class="cov0" title="0">{
+                fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+                
+                // Set appropriate exit codes
+                switch </span>{
+                case strings.Contains(err.Error(), "configuration"):<span class="cov0" title="0">
+                        os.Exit(2)</span>
+                case strings.Contains(err.Error(), "claude-code"):<span class="cov0" title="0">
+                        os.Exit(3)</span>
+                default:<span class="cov0" title="0">
+                        os.Exit(1)</span>
+                }
+        }
+}
+
+// handleCommand processes command line arguments and routes to appropriate handlers
+func handleCommand(args []string) error <span class="cov8" title="1">{
+        if len(args) == 0 </span><span class="cov8" title="1">{
+                // Default behavior: interactive selection and launch
+                return runDefault("")
+        }</span>
+
+        // Use flag package for argument parsing
+        <span class="cov8" title="1">var envFlag string
+        var helpFlag bool
+        
+        fs := flag.NewFlagSet("cce", flag.ContinueOnError)
+        fs.StringVar(&amp;envFlag, "env", "", "environment name")
+        fs.StringVar(&amp;envFlag, "e", "", "environment name (short)")
+        fs.BoolVar(&amp;helpFlag, "help", false, "show help")
+        fs.BoolVar(&amp;helpFlag, "h", false, "show help (short)")
+        
+        // Handle subcommands before flag parsing
+        if len(args) &gt; 0 </span><span class="cov8" title="1">{
+                switch args[0] </span>{
+                case "list":<span class="cov0" title="0">
+                        return runList()</span>
+                case "add":<span class="cov8" title="1">
+                        return runAdd()</span>
+                case "remove":<span class="cov8" title="1">
+                        if len(args) &lt; 2 </span><span class="cov8" title="1">{
+                                return fmt.Errorf("remove command requires environment name")
+                        }</span>
+                        <span class="cov8" title="1">return runRemove(args[1])</span>
+                case "help", "--help", "-h":<span class="cov8" title="1">
+                        showHelp()
+                        return nil</span>
+                }
+        }
+        
+        // Parse flags
+        <span class="cov0" title="0">if err := fs.Parse(args); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("argument parsing failed: %w", err)
+        }</span>
+        
+        <span class="cov0" title="0">if helpFlag </span><span class="cov0" title="0">{
+                showHelp()
+                return nil
+        }</span>
+        
+        // Run with specified environment or default
+        <span class="cov0" title="0">return runDefault(envFlag)</span>
+}
+
+// showHelp displays usage information
+func showHelp() <span class="cov8" title="1">{
+        fmt.Println("Claude Code Environment Switcher")
+        fmt.Println("\nUsage:")
+        fmt.Println("  cce [command] [options]")
+        fmt.Println("\nCommands:")
+        fmt.Println("  list                List all configured environments")
+        fmt.Println("  add                 Add a new environment configuration")
+        fmt.Println("  remove &lt;name&gt;       Remove an environment configuration")
+        fmt.Println("  help                Show this help message")
+        fmt.Println("\nOptions:")
+        fmt.Println("  -e, --env &lt;name&gt;    Use specific environment")
+        fmt.Println("  -h, --help          Show help")
+        fmt.Println("\nExamples:")
+        fmt.Println("  cce                 Interactive selection and launch Claude Code")
+        fmt.Println("  cce --env prod      Launch Claude Code with 'prod' environment")
+        fmt.Println("  cce list            Show all environments")
+        fmt.Println("  cce add             Add new environment interactively")
+}</span>
+
+// runDefault handles the default behavior: environment selection and Claude Code launch
+func runDefault(envName string) error <span class="cov8" title="1">{
+        // Load configuration
+        config, err := loadConfig()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("configuration loading failed: %w", err)
+        }</span>
+        
+        <span class="cov8" title="1">var selectedEnv Environment
+        
+        if envName != "" </span><span class="cov8" title="1">{
+                // Use specified environment
+                index, exists := findEnvironmentByName(config, envName)
+                if !exists </span><span class="cov8" title="1">{
+                        return fmt.Errorf("environment '%s' not found", envName)
+                }</span>
+                <span class="cov8" title="1">selectedEnv = config.Environments[index]</span>
+        } else<span class="cov8" title="1"> {
+                // Interactive selection
+                selectedEnv, err = selectEnvironment(config)
+                if err != nil </span><span class="cov8" title="1">{
+                        return fmt.Errorf("environment selection failed: %w", err)
+                }</span>
+        }
+        
+        // Display selected environment
+        <span class="cov8" title="1">if _, err := fmt.Printf("Using environment: %s (%s)\n", selectedEnv.Name, selectedEnv.URL); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to display selected environment: %w", err)
+        }</span>
+        
+        // Launch Claude Code
+        <span class="cov8" title="1">return launchClaudeCode(selectedEnv, []string{})</span>
+}
+
+// runList displays all configured environments
+func runList() error <span class="cov8" title="1">{
+        config, err := loadConfig()
+        if err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("configuration loading failed: %w", err)
+        }</span>
+        
+        <span class="cov8" title="1">return displayEnvironments(config)</span>
+}
+
+// runAdd adds a new environment configuration
+func runAdd() error <span class="cov8" title="1">{
+        // Load existing configuration
+        config, err := loadConfig()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("configuration loading failed: %w", err)
+        }</span>
+        
+        // Prompt for new environment details
+        <span class="cov8" title="1">env, err := promptForEnvironment(config)
+        if err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("environment input failed: %w", err)
+        }</span>
+        
+        // Add environment to configuration
+        <span class="cov0" title="0">if err := addEnvironmentToConfig(&amp;config, env); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to add environment: %w", err)
+        }</span>
+        
+        // Save updated configuration
+        <span class="cov0" title="0">if err := saveConfig(config); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to save configuration: %w", err)
+        }</span>
+        
+        <span class="cov0" title="0">if _, err := fmt.Printf("Environment '%s' added successfully.\n", env.Name); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to display success message: %w", err)
+        }</span>
+        
+        <span class="cov0" title="0">return nil</span>
+}
+
+// runRemove removes an environment configuration
+func runRemove(name string) error <span class="cov8" title="1">{
+        // Validate name parameter
+        if err := validateName(name); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("invalid environment name: %w", err)
+        }</span>
+        
+        // Load configuration
+        <span class="cov8" title="1">config, err := loadConfig()
+        if err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("configuration loading failed: %w", err)
+        }</span>
+        
+        // Remove environment from configuration
+        <span class="cov8" title="1">if err := removeEnvironmentFromConfig(&amp;config, name); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("failed to remove environment: %w", err)
+        }</span>
+        
+        // Save updated configuration
+        <span class="cov8" title="1">if err := saveConfig(config); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to save configuration: %w", err)
+        }</span>
+        
+        <span class="cov8" title="1">if _, err := fmt.Printf("Environment '%s' removed successfully.\n", name); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to display success message: %w", err)
+        }</span>
+        
+        <span class="cov8" title="1">return nil</span>
+}</pre>
+		
+		<pre class="file" id="file3" style="display: none">package main
+
+import (
+        "bufio"
+        "fmt"
+        "os"
+        "strconv"
+        "strings"
+        "syscall"
+
+        "golang.org/x/term"
+)
+
+// secureInput prompts for input without echoing characters to terminal
+func secureInput(prompt string) (string, error) <span class="cov8" title="1">{
+        if _, err := fmt.Print(prompt); err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("failed to display prompt: %w", err)
+        }</span>
+        
+        // Get file descriptor for stdin
+        <span class="cov8" title="1">fd := int(syscall.Stdin)
+        
+        // Check if stdin is a terminal
+        if !term.IsTerminal(fd) </span><span class="cov8" title="1">{
+                return "", fmt.Errorf("secure input requires a terminal")
+        }</span>
+        
+        // Save original terminal state
+        <span class="cov0" title="0">oldState, err := term.MakeRaw(fd)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("failed to set terminal raw mode: %w", err)
+        }</span>
+        
+        // Ensure terminal state is restored on exit
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{
+                if err := term.Restore(fd, oldState); err != nil </span><span class="cov0" title="0">{
+                        fmt.Fprintf(os.Stderr, "Warning: failed to restore terminal state: %v\n", err)
+                }</span>
+        }()
+        
+        <span class="cov0" title="0">var input []byte
+        buffer := make([]byte, 1)
+        
+        for </span><span class="cov0" title="0">{
+                // Read one character at a time
+                n, err := os.Stdin.Read(buffer)
+                if err != nil </span><span class="cov0" title="0">{
+                        return "", fmt.Errorf("failed to read input: %w", err)
+                }</span>
+                <span class="cov0" title="0">if n == 0 </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                
+                <span class="cov0" title="0">char := buffer[0]
+                
+                // Handle special characters
+                switch char </span>{
+                case '\n', '\r':<span class="cov0" title="0"> // Enter key
+                        // Print newline after hidden input
+                        if _, err := fmt.Println(); err != nil </span><span class="cov0" title="0">{
+                                return "", fmt.Errorf("failed to print newline: %w", err)
+                        }</span>
+                        // Clear sensitive data from buffer
+                        <span class="cov0" title="0">for i := range buffer </span><span class="cov0" title="0">{
+                                buffer[i] = 0
+                        }</span>
+                        <span class="cov0" title="0">return string(input), nil</span>
+                        
+                case 127, 8:<span class="cov0" title="0"> // Backspace/Delete
+                        if len(input) &gt; 0 </span><span class="cov0" title="0">{
+                                input = input[:len(input)-1]
+                        }</span>
+                        
+                case 3:<span class="cov0" title="0"> // Ctrl+C
+                        return "", fmt.Errorf("input cancelled by user")</span>
+                        
+                case 4:<span class="cov0" title="0"> // Ctrl+D (EOF)
+                        if len(input) == 0 </span><span class="cov0" title="0">{
+                                return "", fmt.Errorf("EOF received")
+                        }</span>
+                        
+                default:<span class="cov0" title="0">
+                        // Only accept printable characters
+                        if char &gt;= 32 &amp;&amp; char &lt;= 126 </span><span class="cov0" title="0">{
+                                input = append(input, char)
+                        }</span>
+                }
+        }
+}
+
+// regularInput prompts for regular (non-sensitive) input with validation
+func regularInput(prompt string) (string, error) <span class="cov8" title="1">{
+        if _, err := fmt.Print(prompt); err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("failed to display prompt: %w", err)
+        }</span>
+        
+        <span class="cov8" title="1">reader := bufio.NewReader(os.Stdin)
+        input, err := reader.ReadString('\n')
+        if err != nil </span><span class="cov8" title="1">{
+                return "", fmt.Errorf("failed to read input: %w", err)
+        }</span>
+        
+        <span class="cov0" title="0">return strings.TrimSpace(input), nil</span>
+}
+
+// selectEnvironment provides an interactive menu to select from available environments
+func selectEnvironment(config Config) (Environment, error) <span class="cov8" title="1">{
+        if len(config.Environments) == 0 </span><span class="cov8" title="1">{
+                return Environment{}, fmt.Errorf("no environments configured - use 'add' command to create one")
+        }</span>
+        
+        <span class="cov8" title="1">if len(config.Environments) == 1 </span><span class="cov8" title="1">{
+                return config.Environments[0], nil
+        }</span>
+        
+        // Display environments
+        <span class="cov8" title="1">if _, err := fmt.Println("Select environment:"); err != nil </span><span class="cov0" title="0">{
+                return Environment{}, fmt.Errorf("failed to display menu: %w", err)
+        }</span>
+        
+        <span class="cov8" title="1">for i, env := range config.Environments </span><span class="cov8" title="1">{
+                if _, err := fmt.Printf("%d. %s (%s)\n", i+1, env.Name, env.URL); err != nil </span><span class="cov0" title="0">{
+                        return Environment{}, fmt.Errorf("failed to display environment option: %w", err)
+                }</span>
+        }
+        
+        // Get user selection
+        <span class="cov8" title="1">input, err := regularInput(fmt.Sprintf("Enter number (1-%d): ", len(config.Environments)))
+        if err != nil </span><span class="cov8" title="1">{
+                return Environment{}, fmt.Errorf("environment selection failed: %w", err)
+        }</span>
+        
+        // Validate selection
+        <span class="cov0" title="0">choice, err := strconv.Atoi(input)
+        if err != nil </span><span class="cov0" title="0">{
+                return Environment{}, fmt.Errorf("invalid selection - must be a number: %w", err)
+        }</span>
+        
+        <span class="cov0" title="0">if choice &lt; 1 || choice &gt; len(config.Environments) </span><span class="cov0" title="0">{
+                return Environment{}, fmt.Errorf("invalid selection - must be between 1 and %d", len(config.Environments))
+        }</span>
+        
+        <span class="cov0" title="0">return config.Environments[choice-1], nil</span>
+}
+
+// promptForEnvironment collects new environment details with validation
+func promptForEnvironment(config Config) (Environment, error) <span class="cov8" title="1">{
+        var env Environment
+        var err error
+        
+        // Get environment name
+        for </span><span class="cov8" title="1">{
+                env.Name, err = regularInput("Environment name: ")
+                if err != nil </span><span class="cov8" title="1">{
+                        return Environment{}, fmt.Errorf("failed to get environment name: %w", err)
+                }</span>
+                
+                // Validate name
+                <span class="cov0" title="0">if err := validateName(env.Name); err != nil </span><span class="cov0" title="0">{
+                        if _, printErr := fmt.Printf("Invalid name: %v\n", err); printErr != nil </span><span class="cov0" title="0">{
+                                return Environment{}, fmt.Errorf("failed to display error: %w", printErr)
+                        }</span>
+                        <span class="cov0" title="0">continue</span>
+                }
+                
+                // Check for duplicate
+                <span class="cov0" title="0">if _, exists := findEnvironmentByName(config, env.Name); exists </span><span class="cov0" title="0">{
+                        if _, printErr := fmt.Printf("Environment '%s' already exists\n", env.Name); printErr != nil </span><span class="cov0" title="0">{
+                                return Environment{}, fmt.Errorf("failed to display error: %w", printErr)
+                        }</span>
+                        <span class="cov0" title="0">continue</span>
+                }
+                
+                <span class="cov0" title="0">break</span>
+        }
+        
+        // Get base URL
+        <span class="cov0" title="0">for </span><span class="cov0" title="0">{
+                env.URL, err = regularInput("Base URL: ")
+                if err != nil </span><span class="cov0" title="0">{
+                        return Environment{}, fmt.Errorf("failed to get base URL: %w", err)
+                }</span>
+                
+                // Validate URL
+                <span class="cov0" title="0">if err := validateURL(env.URL); err != nil </span><span class="cov0" title="0">{
+                        if _, printErr := fmt.Printf("Invalid URL: %v\n", err); printErr != nil </span><span class="cov0" title="0">{
+                                return Environment{}, fmt.Errorf("failed to display error: %w", printErr)
+                        }</span>
+                        <span class="cov0" title="0">continue</span>
+                }
+                
+                <span class="cov0" title="0">break</span>
+        }
+        
+        // Get API key (secure input)
+        <span class="cov0" title="0">for </span><span class="cov0" title="0">{
+                env.APIKey, err = secureInput("API Key (hidden): ")
+                if err != nil </span><span class="cov0" title="0">{
+                        return Environment{}, fmt.Errorf("failed to get API key: %w", err)
+                }</span>
+                
+                // Validate API key
+                <span class="cov0" title="0">if err := validateAPIKey(env.APIKey); err != nil </span><span class="cov0" title="0">{
+                        if _, printErr := fmt.Printf("Invalid API key: %v\n", err); printErr != nil </span><span class="cov0" title="0">{
+                                return Environment{}, fmt.Errorf("failed to display error: %w", printErr)
+                        }</span>
+                        <span class="cov0" title="0">continue</span>
+                }
+                
+                <span class="cov0" title="0">break</span>
+        }
+        
+        <span class="cov0" title="0">return env, nil</span>
+}
+
+// displayEnvironments formats and shows the environment list with API key masking
+func displayEnvironments(config Config) error <span class="cov8" title="1">{
+        if len(config.Environments) == 0 </span><span class="cov8" title="1">{
+                if _, err := fmt.Println("No environments configured."); err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to display message: %w", err)
+                }</span>
+                <span class="cov8" title="1">if _, err := fmt.Println("Use 'add' command to create your first environment."); err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to display message: %w", err)
+                }</span>
+                <span class="cov8" title="1">return nil</span>
+        }
+        
+        <span class="cov8" title="1">if _, err := fmt.Printf("Configured environments (%d):\n", len(config.Environments)); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to display header: %w", err)
+        }</span>
+        
+        <span class="cov8" title="1">for _, env := range config.Environments </span><span class="cov8" title="1">{
+                // Mask API key (show only first 4 and last 4 characters)
+                maskedKey := maskAPIKey(env.APIKey)
+                
+                if _, err := fmt.Printf("\n  Name: %s\n", env.Name); err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to display environment name: %w", err)
+                }</span>
+                <span class="cov8" title="1">if _, err := fmt.Printf("  URL:  %s\n", env.URL); err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to display environment URL: %w", err)
+                }</span>
+                <span class="cov8" title="1">if _, err := fmt.Printf("  Key:  %s\n", maskedKey); err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to display masked API key: %w", err)
+                }</span>
+        }
+        
+        <span class="cov8" title="1">return nil</span>
+}
+
+// maskAPIKey masks an API key showing only first and last few characters
+func maskAPIKey(apiKey string) string <span class="cov8" title="1">{
+        if len(apiKey) &lt;= 8 </span><span class="cov8" title="1">{
+                return strings.Repeat("*", len(apiKey))
+        }</span>
+        
+        <span class="cov8" title="1">return apiKey[:4] + strings.Repeat("*", len(apiKey)-8) + apiKey[len(apiKey)-4:]</span>
+}</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
