@@ -32,7 +32,15 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(git add:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(./cce -r \"You are a helpful assistant\")",
+      "Bash(echo:*)",
+      "Bash(go run:*)",
+      "Bash(go generate:*)",
+      "Bash(./simple-cce:*)",
+      "Bash(./cce help)",
+      "Bash(./cce list)",
+      "Bash(mv:*)"
     ],
     "deny": []
   }
