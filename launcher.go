@@ -5,20 +5,64 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 )
 
-// checkClaudeCodeExists verifies that claude-code is available in PATH
+// retryConfig holds retry configuration
+type retryConfig struct {
+	maxRetries int
+	baseDelay  time.Duration
+}
+
+// defaultRetryConfig returns sensible defaults
+func defaultRetryConfig() retryConfig {
+	return retryConfig{
+		maxRetries: 3,
+		baseDelay:  100 * time.Millisecond,
+	}
+}
+
+// exponentialBackoff calculates delay for attempt
+func (rc retryConfig) exponentialBackoff(attempt int) time.Duration {
+	if attempt <= 0 {
+		return rc.baseDelay
+	}
+	delay := rc.baseDelay
+	for i := 0; i < attempt; i++ {
+		delay *= 2
+	}
+	return delay
+}
+
+// checkClaudeCodeExists verifies that claude-code is available in PATH with enhanced error guidance
 func checkClaudeCodeExists() error {
 	path, err := exec.LookPath("claude")
 	if err != nil {
-		return fmt.Errorf("claude Code not found in PATH - please install Claude Code CLI first")
+		errorCtx := newErrorContext("claude verification", "launcher")
+		errorCtx.addContext("command", "claude")
+		errorCtx.addSuggestion("Install Claude Code CLI from https://claude.ai/")
+		errorCtx.addSuggestion("Ensure Claude Code is in your PATH environment variable")
+		errorCtx.addSuggestion("Try running 'claude --version' to verify installation")
+		
+		return errorCtx.formatError(fmt.Errorf("claude Code not found in PATH"))
 	}
 
-	// Additional check to ensure the file is executable
+	// Additional check to ensure the file is executable with permission guidance
 	if info, err := os.Stat(path); err != nil {
-		return fmt.Errorf("claude Code path verification failed: %w", err)
+		errorCtx := newErrorContext("permission verification", "launcher")
+		errorCtx.addContext("path", path)
+		errorCtx.addSuggestion("Check file permissions with: ls -la " + path)
+		errorCtx.addSuggestion("Reinstall Claude Code if file is corrupted")
+		
+		return errorCtx.formatError(fmt.Errorf("claude Code path verification failed: %w", err))
 	} else if info.Mode()&0111 == 0 {
-		return fmt.Errorf("claude Code found but not executable: %s", path)
+		errorCtx := newErrorContext("permission check", "launcher")
+		errorCtx.addContext("path", path)
+		errorCtx.addContext("permissions", info.Mode().String())
+		errorCtx.addSuggestion("Fix permissions with: chmod +x " + path)
+		errorCtx.addSuggestion("Reinstall Claude Code if permission issues persist")
+		
+		return errorCtx.formatError(fmt.Errorf("claude Code found but not executable"))
 	}
 
 	return nil
@@ -35,7 +79,7 @@ func prepareEnvironment(env Environment) ([]string, error) {
 	currentEnv := os.Environ()
 
 	// Create new environment with Anthropic variables
-	newEnv := make([]string, 0, len(currentEnv)+2)
+	newEnv := make([]string, 0, len(currentEnv)+3)
 
 	// Copy existing environment variables (except Anthropic ones)
 	for _, envVar := range currentEnv {
@@ -48,6 +92,11 @@ func prepareEnvironment(env Environment) ([]string, error) {
 	// Add Anthropic-specific environment variables
 	newEnv = append(newEnv, fmt.Sprintf("ANTHROPIC_BASE_URL=%s", env.URL))
 	newEnv = append(newEnv, fmt.Sprintf("ANTHROPIC_API_KEY=%s", env.APIKey))
+	
+	// Add ANTHROPIC_MODEL if specified
+	if env.Model != "" {
+		newEnv = append(newEnv, fmt.Sprintf("ANTHROPIC_MODEL=%s", env.Model))
+	}
 
 	return newEnv, nil
 }

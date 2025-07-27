@@ -6,7 +6,138 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 )
+
+// configBackup manages configuration backup operations
+type configBackup struct {
+	originalPath string
+	backupDir    string
+}
+
+// newConfigBackup creates a backup manager
+func newConfigBackup(configPath string) *configBackup {
+	return &configBackup{
+		originalPath: configPath,
+		backupDir:    filepath.Dir(configPath) + "/backups",
+	}
+}
+
+// createBackup creates a timestamped backup of the configuration
+func (cb *configBackup) createBackup() (string, error) {
+	// Ensure backup directory exists
+	if err := os.MkdirAll(cb.backupDir, 0700); err != nil {
+		return "", fmt.Errorf("failed to create backup directory: %w", err)
+	}
+	
+	// Check if original file exists
+	if _, err := os.Stat(cb.originalPath); os.IsNotExist(err) {
+		return "", nil // No file to backup
+	}
+	
+	// Create timestamped backup filename
+	timestamp := time.Now().Format("20060102-150405")
+	backupPath := filepath.Join(cb.backupDir, fmt.Sprintf("config-%s.json", timestamp))
+	
+	// Read original file
+	data, err := ioutil.ReadFile(cb.originalPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read original config: %w", err)
+	}
+	
+	// Write backup
+	if err := ioutil.WriteFile(backupPath, data, 0600); err != nil {
+		return "", fmt.Errorf("failed to write backup: %w", err)
+	}
+	
+	return backupPath, nil
+}
+
+// detectCorruption attempts to detect configuration corruption
+func detectCorruption(configPath string) error {
+	data, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("cannot read config file: %w", err)
+	}
+	
+	if len(data) == 0 {
+		return fmt.Errorf("configuration file is empty")
+	}
+	
+	// Basic JSON validation
+	var testConfig Config
+	if err := json.Unmarshal(data, &testConfig); err != nil {
+		return fmt.Errorf("configuration file contains invalid JSON: %w", err)
+	}
+	
+	return nil
+}
+
+// repairConfiguration attempts to repair corrupted configuration
+func repairConfiguration(configPath string) error {
+	backup := newConfigBackup(configPath)
+	
+	// Create backup of corrupted file
+	if backupPath, err := backup.createBackup(); err == nil && backupPath != "" {
+		fmt.Printf("Corrupted configuration backed up to: %s\n", backupPath)
+	}
+	
+	// Try to find the most recent valid backup
+	if validBackup, err := findValidBackup(backup.backupDir); err == nil && validBackup != "" {
+		fmt.Printf("Restoring from backup: %s\n", validBackup)
+		return copyFile(validBackup, configPath)
+	}
+	
+	// No valid backup found, create minimal configuration
+	fmt.Println("No valid backup found, creating minimal configuration...")
+	minimalConfig := Config{Environments: []Environment{}}
+	return saveConfigDirect(minimalConfig, configPath)
+}
+
+// findValidBackup searches for the most recent valid backup
+func findValidBackup(backupDir string) (string, error) {
+	entries, err := ioutil.ReadDir(backupDir)
+	if err != nil {
+		return "", err
+	}
+	
+	// Sort by modification time (newest first)
+	for i := len(entries) - 1; i >= 0; i-- {
+		entry := entries[i]
+		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".json" {
+			backupPath := filepath.Join(backupDir, entry.Name())
+			if detectCorruption(backupPath) == nil {
+				return backupPath, nil
+			}
+		}
+	}
+	
+	return "", fmt.Errorf("no valid backup found")
+}
+
+// copyFile copies a file from source to destination
+func copyFile(src, dst string) error {
+	data, err := ioutil.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(dst, data, 0600)
+}
+
+// saveConfigDirect saves configuration directly without validation
+func saveConfigDirect(config Config, configPath string) error {
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+	
+	dir := filepath.Dir(configPath)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return err
+	}
+	
+	return ioutil.WriteFile(configPath, data, 0600)
+}
 
 // configPathOverride allows tests to override the config path
 var configPathOverride string
@@ -61,7 +192,7 @@ func ensureConfigDir() error {
 	return nil
 }
 
-// loadConfig reads and parses the configuration file with comprehensive error handling
+// loadConfig reads and parses the configuration file with comprehensive error handling and recovery
 func loadConfig() (Config, error) {
 	configPath, err := getConfigPath()
 	if err != nil {
@@ -74,6 +205,18 @@ func loadConfig() (Config, error) {
 		return Config{Environments: []Environment{}}, nil
 	} else if err != nil {
 		return Config{}, fmt.Errorf("configuration file access failed: %w", err)
+	}
+	
+	// Check for corruption before attempting to read
+	if err := detectCorruption(configPath); err != nil {
+		fmt.Printf("Configuration corruption detected: %v\n", err)
+		fmt.Println("Attempting automatic repair...")
+		
+		if repairErr := repairConfiguration(configPath); repairErr != nil {
+			return Config{}, fmt.Errorf("configuration repair failed: %w", repairErr)
+		}
+		
+		fmt.Println("Configuration repaired successfully")
 	}
 	
 	// Read file contents
@@ -108,7 +251,7 @@ func loadConfig() (Config, error) {
 	return config, nil
 }
 
-// saveConfig writes the configuration to file with atomic operations and proper permissions
+// saveConfig writes the configuration to file with atomic operations, backup, and proper permissions
 func saveConfig(config Config) error {
 	// Validate configuration before saving
 	for i, env := range config.Environments {
@@ -125,6 +268,16 @@ func saveConfig(config Config) error {
 	configPath, err := getConfigPath()
 	if err != nil {
 		return fmt.Errorf("configuration save failed: %w", err)
+	}
+	
+	// Create backup before saving (if file exists)
+	backup := newConfigBackup(configPath)
+	if _, err := os.Stat(configPath); err == nil {
+		if backupPath, backupErr := backup.createBackup(); backupErr != nil {
+			fmt.Printf("Warning: failed to create backup: %v\n", backupErr)
+		} else if backupPath != "" {
+			fmt.Printf("Configuration backed up to: %s\n", backupPath)
+		}
 	}
 	
 	// Marshal to JSON with proper formatting
