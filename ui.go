@@ -269,6 +269,88 @@ func (df *DisplayFormatter) formatEnvironmentForDisplay(env Environment) Environ
 	return display
 }
 
+// formatSingleLine creates a complete line that fits within terminal width
+func (df *DisplayFormatter) formatSingleLine(prefix string, env Environment) string {
+	// Calculate available space for content
+	// Format will be: "prefix name (url) [model]"
+	prefixLen := len(prefix)
+	
+	// Static characters: " (" + ") [" + "]" = 6 characters
+	staticOverhead := 6
+	maxContentLen := df.layout.Width - prefixLen - staticOverhead
+	
+	// If we don't have enough space, use minimal format
+	if maxContentLen < 20 {
+		name := env.Name
+		if len(name) > 10 {
+			name = name[:7] + "..."
+		}
+		return fmt.Sprintf("%s%s", prefix, name)
+	}
+	
+	// Distribute space: name (40%), url (45%), model (15%)
+	nameSpace := int(float64(maxContentLen) * 0.40)
+	urlSpace := int(float64(maxContentLen) * 0.45)
+	modelSpace := maxContentLen - nameSpace - urlSpace
+	
+	// Ensure minimum sizes
+	if nameSpace < 8 {
+		nameSpace = 8
+	}
+	if urlSpace < 10 {
+		urlSpace = 10
+	}
+	if modelSpace < 6 {
+		modelSpace = 6
+	}
+	
+	// Truncate fields to fit allocated space
+	name := env.Name
+	if len(name) > nameSpace {
+		if nameSpace > 3 {
+			name = name[:nameSpace-3] + "..."
+		} else {
+			name = name[:nameSpace]
+		}
+	}
+	
+	url := env.URL
+	if len(url) > urlSpace {
+		if urlSpace > 3 {
+			url = url[:urlSpace-3] + "..."
+		} else {
+			url = url[:urlSpace]
+		}
+	}
+	
+	model := env.Model
+	if model == "" {
+		model = "default"
+	}
+	if len(model) > modelSpace {
+		if modelSpace > 3 {
+			model = model[:modelSpace-3] + "..."
+		} else {
+			model = model[:modelSpace]
+		}
+	}
+	
+	// Create the formatted line
+	line := fmt.Sprintf("%s%s (%s) [%s]", prefix, name, url, model)
+	
+	// Final safety check - truncate if still too long
+	if len(line) > df.layout.Width {
+		maxLen := df.layout.Width - 3
+		if maxLen > 0 {
+			line = line[:maxLen] + "..."
+		} else {
+			line = line[:df.layout.Width]
+		}
+	}
+	
+	return line
+}
+
 // ArrowKey represents arrow key types for navigation
 type ArrowKey int
 
@@ -337,10 +419,9 @@ func displayEnvironmentMenu(environments []Environment, selectedIndex int) {
 			prefix = "► "
 		}
 		
-		// Format environment with responsive layout
-		display := formatter.formatEnvironmentForDisplay(env)
-		
-		fmt.Printf("%s%s (%s) [%s]\n", prefix, display.DisplayName, display.DisplayURL, display.DisplayModel)
+		// Format complete line to fit within terminal width
+		line := formatter.formatSingleLine(prefix, env)
+		fmt.Println(line)
 	}
 }
 
@@ -488,10 +569,9 @@ func displayBasicEnvironmentMenu(environments []Environment, selectedIndex int) 
 			prefix = "* " // Simple asterisk instead of arrow character
 		}
 		
-		// Format environment with responsive layout
-		display := formatter.formatEnvironmentForDisplay(env)
-		
-		fmt.Printf("%s%s (%s) [%s]\n", prefix, display.DisplayName, display.DisplayURL, display.DisplayModel)
+		// Format complete line to fit within terminal width
+		line := formatter.formatSingleLine(prefix, env)
+		fmt.Println(line)
 	}
 }
 
@@ -637,10 +717,11 @@ func selectEnvironmentOriginal(config Config) (Environment, error) {
 	formatter := newDisplayFormatter(layout)
 	
 	for i, env := range config.Environments {
-		// Format environment with responsive layout
-		display := formatter.formatEnvironmentForDisplay(env)
+		// Format complete line to fit within terminal width
+		prefix := fmt.Sprintf("%d. ", i+1)
+		line := formatter.formatSingleLine(prefix, env)
 		
-		if _, err := fmt.Printf("%d. %s (%s) [%s]\n", i+1, display.DisplayName, display.DisplayURL, display.DisplayModel); err != nil {
+		if _, err := fmt.Println(line); err != nil {
 			return Environment{}, fmt.Errorf("failed to display environment option: %w", err)
 		}
 	}
