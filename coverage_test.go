@@ -148,7 +148,7 @@ func TestRunFunctions(t *testing.T) {
 	})
 
 	t.Run("runDefault with non-existent environment", func(t *testing.T) {
-		err := runDefault("nonexistent")
+		err := runDefault("nonexistent", []string{})
 		if err == nil {
 			t.Error("Expected error with non-existent environment")
 		}

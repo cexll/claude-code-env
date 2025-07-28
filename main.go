@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"net/url"
 	"os"
@@ -118,6 +117,39 @@ type ValidationSettings struct {
 	StrictValidation   bool     `json:"strict_validation,omitempty"`
 	// UnknownModelAction string   `json:"unknown_model_action,omitempty"`
 }
+
+// ArgumentParser manages two-phase argument parsing for CCE and claude flags
+type ArgumentParser struct {
+	cceFlags     map[string]string
+	claudeArgs   []string
+	separatorPos int // Position of -- separator if found
+}
+
+// ParseResult contains the results of argument parsing
+type ParseResult struct {
+	CCEFlags    map[string]string
+	ClaudeArgs  []string
+	Subcommand  string
+	Error       error
+}
+
+// CCECommand represents a parsed command with environment and claude arguments
+type CCECommand struct {
+	Type        CommandType
+	Environment string
+	ClaudeArgs  []string
+}
+
+// CommandType represents the type of command being executed
+type CommandType int
+
+const (
+	DefaultCommand CommandType = iota
+	ListCommand
+	AddCommand
+	RemoveCommand
+	HelpCommand
+)
 
 // errorContext provides structured error information with recovery guidance
 type errorContext struct {
@@ -281,9 +313,124 @@ func (mv *modelValidator) validateModelAdaptive(model string) error {
 	return fmt.Errorf("model must start with 'claude-'. Got: %s", model)
 }
 
+// parseArguments performs two-phase argument parsing to separate CCE flags from claude arguments
+func parseArguments(args []string) ParseResult {
+	result := ParseResult{
+		CCEFlags:   make(map[string]string),
+		ClaudeArgs: []string{},
+	}
+
+	if len(args) == 0 {
+		return result
+	}
+
+	// Phase 1: Check for subcommands first
+	switch args[0] {
+	case "list":
+		result.Subcommand = "list"
+		return result
+	case "add":
+		result.Subcommand = "add"
+		return result
+	case "remove":
+		if len(args) < 2 {
+			result.Error = fmt.Errorf("remove command requires environment name")
+			return result
+		}
+		result.Subcommand = "remove"
+		result.CCEFlags["remove_target"] = args[1]
+		return result
+	case "help", "--help", "-h":
+		result.Subcommand = "help"
+		return result
+	}
+
+	// Phase 1: Scan for CCE flags and -- separator
+	i := 0
+	separatorFound := false
+	
+	for i < len(args) {
+		arg := args[i]
+		
+		// Check for -- separator
+		if arg == "--" {
+			separatorFound = true
+			i++ // Skip the separator itself
+			break
+		}
+		
+		// Check for known CCE flags
+		if arg == "--env" || arg == "-e" {
+			if i+1 >= len(args) {
+				result.Error = fmt.Errorf("flag %s requires a value", arg)
+				return result
+			}
+			result.CCEFlags["env"] = args[i+1]
+			i += 2 // Skip flag and its value
+			continue
+		}
+		
+		if arg == "--help" || arg == "-h" {
+			result.Subcommand = "help"
+			return result
+		}
+		
+		// If we encounter an unknown flag or argument, stop CCE processing
+		break
+	}
+	
+	// Phase 2: Collect remaining arguments for claude
+	if separatorFound || i < len(args) {
+		result.ClaudeArgs = args[i:]
+	}
+	
+	return result
+}
+
+// validatePassthroughArgs performs security validation on claude arguments
+func validatePassthroughArgs(args []string) error {
+	for _, arg := range args {
+		// Check for potential command injection patterns
+		if strings.Contains(arg, ";") || strings.Contains(arg, "&") || 
+		   strings.Contains(arg, "|") || strings.Contains(arg, "`") ||
+		   strings.Contains(arg, "$(") {
+			// Allow these in quoted strings, but warn about potential risks
+			fmt.Fprintf(os.Stderr, "Warning: Argument contains shell metacharacters: %s\n", arg)
+		}
+		
+		// Block obvious command injection attempts
+		if strings.Contains(arg, "rm -rf") || strings.Contains(arg, "sudo") ||
+		   strings.Contains(arg, "/etc/passwd") || strings.Contains(arg, "../") {
+			return fmt.Errorf("potentially dangerous argument rejected: %s", arg)
+		}
+	}
+	return nil
+}
+
 func main() {
 	if err := handleCommand(os.Args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		// Enhanced error categorization with clear messaging
+		errorType := categorizeError(err)
+		
+		switch errorType {
+		case "cce_argument":
+			fmt.Fprintf(os.Stderr, "CCE Argument Error: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Use 'cce help' for usage information.\n")
+		case "cce_config":
+			fmt.Fprintf(os.Stderr, "CCE Configuration Error: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Check your environment configuration with 'cce list'.\n")
+		case "claude_execution":
+			fmt.Fprintf(os.Stderr, "Claude Code Error: %v\n", err)
+			fmt.Fprintf(os.Stderr, "This error originated from the claude command.\n")
+		case "terminal":
+			fmt.Fprintf(os.Stderr, "Terminal Compatibility Error: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Try using a different terminal or check terminal capabilities.\n")
+		case "permission":
+			fmt.Fprintf(os.Stderr, "Permission Error: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Check file permissions and access rights.\n")
+		default:
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
 
 		// Enhanced error categorization with exit codes
 		switch {
@@ -295,66 +442,95 @@ func main() {
 			os.Exit(2) // Configuration error (existing)
 		case strings.Contains(err.Error(), "claude"):
 			os.Exit(3) // Claude Code launcher error (existing)
+		case strings.Contains(err.Error(), "argument parsing"):
+			os.Exit(6) // CCE argument parsing error
+		case strings.Contains(err.Error(), "argument validation"):
+			os.Exit(7) // CCE argument validation error
 		default:
 			os.Exit(1) // General application error
 		}
 	}
 }
 
-// handleCommand processes command line arguments and routes to appropriate handlers
+// categorizeError determines the error category for appropriate handling
+func categorizeError(err error) string {
+	errStr := err.Error()
+	
+	// CCE argument-related errors
+	if strings.Contains(errStr, "argument parsing") || 
+	   strings.Contains(errStr, "argument validation") ||
+	   strings.Contains(errStr, "flag") && !strings.Contains(errStr, "claude") {
+		return "cce_argument"
+	}
+	
+	// CCE configuration errors
+	if strings.Contains(errStr, "configuration") ||
+	   strings.Contains(errStr, "environment") && !strings.Contains(errStr, "claude") {
+		return "cce_config"
+	}
+	
+	// Claude execution errors
+	if strings.Contains(errStr, "Claude Code") ||
+	   strings.Contains(errStr, "claude") && (strings.Contains(errStr, "execution") || strings.Contains(errStr, "process")) {
+		return "claude_execution"
+	}
+	
+	// Terminal errors
+	if strings.Contains(errStr, "terminal") ||
+	   strings.Contains(errStr, "tty") ||
+	   strings.Contains(errStr, "raw mode") {
+		return "terminal"
+	}
+	
+	// Permission errors
+	if strings.Contains(errStr, "permission") ||
+	   strings.Contains(errStr, "access denied") ||
+	   strings.Contains(errStr, "not executable") {
+		return "permission"
+	}
+	
+	return "general"
+}
+
+// handleCommand processes command line arguments using two-phase parsing and routes to appropriate handlers
 func handleCommand(args []string) error {
-	if len(args) == 0 {
-		// Default behavior: interactive selection and launch
-		return runDefault("")
+	// Use new two-phase argument parsing
+	parseResult := parseArguments(args)
+	if parseResult.Error != nil {
+		return fmt.Errorf("argument parsing failed: %w", parseResult.Error)
 	}
 
-	// Use flag package for argument parsing
-	var envFlag string
-	var helpFlag bool
-
-	fs := flag.NewFlagSet("cce", flag.ContinueOnError)
-	fs.StringVar(&envFlag, "env", "", "environment name")
-	fs.StringVar(&envFlag, "e", "", "environment name (short)")
-	fs.BoolVar(&helpFlag, "help", false, "show help")
-	fs.BoolVar(&helpFlag, "h", false, "show help (short)")
-
-	// Handle subcommands before flag parsing
-	if len(args) > 0 {
-		switch args[0] {
-		case "list":
-			return runList()
-		case "add":
-			return runAdd()
-		case "remove":
-			if len(args) < 2 {
-				return fmt.Errorf("remove command requires environment name")
-			}
-			return runRemove(args[1])
-		case "help", "--help", "-h":
-			showHelp()
-			return nil
+	// Handle subcommands
+	switch parseResult.Subcommand {
+	case "list":
+		return runList()
+	case "add":
+		return runAdd()
+	case "remove":
+		if target, exists := parseResult.CCEFlags["remove_target"]; exists {
+			return runRemove(target)
 		}
-	}
-
-	// Parse flags
-	if err := fs.Parse(args); err != nil {
-		return fmt.Errorf("argument parsing failed: %w", err)
-	}
-
-	if helpFlag {
+		return fmt.Errorf("remove command requires environment name")
+	case "help":
 		showHelp()
 		return nil
 	}
 
-	// Run with specified environment or default
-	return runDefault(envFlag)
+	// Validate passthrough arguments for security
+	if err := validatePassthroughArgs(parseResult.ClaudeArgs); err != nil {
+		return fmt.Errorf("argument validation failed: %w", err)
+	}
+
+	// Handle default behavior with environment selection and claude arguments
+	envName := parseResult.CCEFlags["env"]
+	return runDefault(envName, parseResult.ClaudeArgs)
 }
 
-// showHelp displays usage information
+// showHelp displays usage information including flag passthrough capability
 func showHelp() {
 	fmt.Println("Claude Code Environment Switcher")
 	fmt.Println("\nUsage:")
-	fmt.Println("  cce [command] [options]")
+	fmt.Println("  cce [command] [options] [-- claude-args...]")
 	fmt.Println("\nCommands:")
 	fmt.Println("  list                List all configured environments")
 	fmt.Println("  add                 Add a new environment configuration (supports model specification)")
@@ -363,19 +539,29 @@ func showHelp() {
 	fmt.Println("\nOptions:")
 	fmt.Println("  -e, --env <name>    Use specific environment")
 	fmt.Println("  -h, --help          Show help")
+	fmt.Println("\nFlag Passthrough:")
+	fmt.Println("  Any arguments after CCE options are passed directly to the claude command.")
+	fmt.Println("  Use '--' to explicitly separate CCE options from claude arguments.")
 	fmt.Println("\nFeatures:")
 	fmt.Println("  • Interactive arrow key navigation (↑↓ arrows, Enter to select, Esc to cancel)")
 	fmt.Println("  • Optional model specification per environment (e.g., claude-3-5-sonnet-20241022)")
 	fmt.Println("  • Automatic fallback to numbered selection on incompatible terminals")
+	fmt.Println("  • Responsive UI layout adapts to terminal width")
+	fmt.Println("  • Smart content truncation for long environment names and URLs")
 	fmt.Println("\nExamples:")
-	fmt.Println("  cce                 Interactive selection and launch Claude Code")
-	fmt.Println("  cce --env prod      Launch Claude Code with 'prod' environment")
-	fmt.Println("  cce list            Show all environments with model information")
-	fmt.Println("  cce add             Add new environment interactively (with optional model)")
+	fmt.Println("  cce                              Interactive selection and launch Claude Code")
+	fmt.Println("  cce --env prod                   Launch Claude Code with 'prod' environment")
+	fmt.Println("  cce list                         Show all environments with model information")
+	fmt.Println("  cce add                          Add new environment interactively (with optional model)")
+	fmt.Println("\nFlag Passthrough Examples:")
+	fmt.Println("  cce --env staging -r             Launch claude with 'staging' env and -r flag")
+	fmt.Println("  cce --verbose --model claude-3   Pass --verbose and --model flags to claude")
+	fmt.Println("  cce -- --help                    Show claude's help (-- separates CCE from claude flags)")
+	fmt.Println("  cce -e dev -- chat --interactive Use 'dev' env and pass chat flags to claude")
 }
 
-// runDefault handles the default behavior: environment selection and Claude Code launch
-func runDefault(envName string) error {
+// runDefault handles the default behavior: environment selection and Claude Code launch with arguments
+func runDefault(envName string, claudeArgs []string) error {
 	// Load configuration
 	config, err := loadConfig()
 	if err != nil {
@@ -404,8 +590,8 @@ func runDefault(envName string) error {
 		return fmt.Errorf("failed to display selected environment: %w", err)
 	}
 
-	// Launch Claude Code
-	return launchClaudeCode(selectedEnv, []string{})
+	// Launch Claude Code with arguments
+	return launchClaudeCode(selectedEnv, claudeArgs)
 }
 
 // runList displays all configured environments

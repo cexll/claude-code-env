@@ -21,6 +21,32 @@ type terminalCapabilities struct {
 	Height         int
 }
 
+// TerminalLayout contains responsive layout calculations and constraints
+type TerminalLayout struct {
+	Width           int
+	Height          int
+	SupportsANSI    bool
+	ContentWidth    int // Available width for content after UI elements
+	TruncationLimit int // Maximum length before content truncation
+}
+
+// DisplayFormatter manages responsive content formatting with smart truncation
+type DisplayFormatter struct {
+	layout       TerminalLayout
+	nameWidth    int // Calculated optimal name column width
+	urlWidth     int // Calculated optimal URL column width
+	modelWidth   int // Calculated optimal model column width
+}
+
+// EnvironmentDisplay represents an environment with responsive display formatting
+type EnvironmentDisplay struct {
+	Environment     Environment
+	DisplayName     string   // Truncated if necessary
+	DisplayURL      string   // Truncated if necessary
+	DisplayModel    string   // Truncated if necessary
+	TruncatedFields []string // Track what was truncated for user awareness
+}
+
 // terminalState manages terminal state restoration
 type terminalState struct {
 	fd       int
@@ -83,6 +109,166 @@ func detectTerminalCapabilities() terminalCapabilities {
 	return caps
 }
 
+// detectTerminalLayout creates layout configuration with responsive calculations
+func detectTerminalLayout() TerminalLayout {
+	caps := detectTerminalCapabilities()
+	
+	layout := TerminalLayout{
+		Width:        caps.Width,
+		Height:       caps.Height,
+		SupportsANSI: caps.SupportsANSI,
+	}
+	
+	// Calculate content width (reserve space for UI elements: prefix + brackets + spacing)
+	// UI overhead: "► " (2 chars) + " (" + ") [" + "]" (4 chars) + spacing (2 chars) = 8 chars
+	uiOverhead := 8
+	if layout.Width < 40 {
+		// Very narrow terminal - minimal overhead
+		uiOverhead = 4
+	}
+	
+	layout.ContentWidth = layout.Width - uiOverhead
+	if layout.ContentWidth < 20 {
+		layout.ContentWidth = 20 // Minimum usable width
+	}
+	
+	// Set truncation limit based on content width
+	layout.TruncationLimit = layout.ContentWidth - 10 // Reserve space for ellipsis and spacing
+	if layout.TruncationLimit < 10 {
+		layout.TruncationLimit = 10
+	}
+	
+	return layout
+}
+
+// newDisplayFormatter creates a formatter with optimal column width calculations
+func newDisplayFormatter(layout TerminalLayout) *DisplayFormatter {
+	formatter := &DisplayFormatter{
+		layout: layout,
+	}
+	
+	// Allocate space proportionally: Name (40%), URL (45%), Model (15%)
+	contentSpace := layout.ContentWidth
+	formatter.nameWidth = int(float64(contentSpace) * 0.40)
+	formatter.urlWidth = int(float64(contentSpace) * 0.45)
+	formatter.modelWidth = int(float64(contentSpace) * 0.15)
+	
+	// Ensure minimum widths
+	if formatter.nameWidth < 8 {
+		formatter.nameWidth = 8
+	}
+	if formatter.urlWidth < 10 {
+		formatter.urlWidth = 10
+	}
+	if formatter.modelWidth < 6 {
+		formatter.modelWidth = 6
+	}
+	
+	return formatter
+}
+
+// smartTruncateName implements intelligent name truncation
+func (df *DisplayFormatter) smartTruncateName(name string) (string, bool) {
+	if len(name) <= df.nameWidth {
+		return name, false
+	}
+	
+	// Keep beginning and end, ellipsis in middle
+	if df.nameWidth < 8 {
+		return name[:df.nameWidth-3] + "...", true
+	}
+	
+	prefixLen := (df.nameWidth - 3) / 2
+	suffixLen := df.nameWidth - 3 - prefixLen
+	
+	return name[:prefixLen] + "..." + name[len(name)-suffixLen:], true
+}
+
+// smartTruncateURL implements intelligent URL truncation
+func (df *DisplayFormatter) smartTruncateURL(url string) (string, bool) {
+	if len(url) <= df.urlWidth {
+		return url, false
+	}
+	
+	// Show protocol + domain, truncate path with ellipsis
+	if strings.Contains(url, "://") {
+		parts := strings.SplitN(url, "://", 2)
+		if len(parts) == 2 {
+			protocol := parts[0] + "://"
+			remaining := parts[1]
+			
+			// Find domain part
+			domainEndIdx := strings.Index(remaining, "/")
+			if domainEndIdx == -1 {
+				domainEndIdx = len(remaining)
+			}
+			
+			domain := remaining[:domainEndIdx]
+			protocolDomainLen := len(protocol) + len(domain)
+			
+			if protocolDomainLen <= df.urlWidth-3 {
+				return protocol + domain + "...", true
+			}
+		}
+	}
+	
+	// Fallback: simple truncation
+	return url[:df.urlWidth-3] + "...", true
+}
+
+// smartTruncateModel implements intelligent model truncation
+func (df *DisplayFormatter) smartTruncateModel(model string) (string, bool) {
+	if model == "" {
+		return "default", false
+	}
+	
+	if len(model) <= df.modelWidth {
+		return model, false
+	}
+	
+	// Preserve model family identifier if possible
+	if strings.HasPrefix(model, "claude-") {
+		if df.modelWidth >= 10 {
+			// Try to keep "claude-" prefix and truncate end
+			return model[:df.modelWidth-3] + "...", true
+		}
+	}
+	
+	// Simple truncation
+	return model[:df.modelWidth-3] + "...", true
+}
+
+// formatEnvironmentForDisplay creates responsive display formatting for an environment
+func (df *DisplayFormatter) formatEnvironmentForDisplay(env Environment) EnvironmentDisplay {
+	display := EnvironmentDisplay{
+		Environment:     env,
+		TruncatedFields: []string{},
+	}
+	
+	// Format name
+	var nameTruncated bool
+	display.DisplayName, nameTruncated = df.smartTruncateName(env.Name)
+	if nameTruncated {
+		display.TruncatedFields = append(display.TruncatedFields, "name")
+	}
+	
+	// Format URL
+	var urlTruncated bool
+	display.DisplayURL, urlTruncated = df.smartTruncateURL(env.URL)
+	if urlTruncated {
+		display.TruncatedFields = append(display.TruncatedFields, "url")
+	}
+	
+	// Format model
+	var modelTruncated bool
+	display.DisplayModel, modelTruncated = df.smartTruncateModel(env.Model)
+	if modelTruncated {
+		display.TruncatedFields = append(display.TruncatedFields, "model")
+	}
+	
+	return display
+}
+
 // ArrowKey represents arrow key types for navigation
 type ArrowKey int
 
@@ -136,10 +322,14 @@ func clearScreen() {
 	fmt.Print("\033[2J\033[H")
 }
 
-// displayEnvironmentMenu shows interactive menu with selection indicator
+// displayEnvironmentMenu shows interactive menu with responsive layout and selection indicator
 func displayEnvironmentMenu(environments []Environment, selectedIndex int) {
 	clearScreen()
 	fmt.Println("Select environment (use ↑↓ arrows, Enter to confirm, Esc to cancel):")
+	
+	// Detect terminal layout and create formatter
+	layout := detectTerminalLayout()
+	formatter := newDisplayFormatter(layout)
 	
 	for i, env := range environments {
 		prefix := "  "
@@ -147,12 +337,10 @@ func displayEnvironmentMenu(environments []Environment, selectedIndex int) {
 			prefix = "► "
 		}
 		
-		modelDisplay := "default"
-		if env.Model != "" {
-			modelDisplay = env.Model
-		}
+		// Format environment with responsive layout
+		display := formatter.formatEnvironmentForDisplay(env)
 		
-		fmt.Printf("%s%s (%s) [%s]\n", prefix, env.Name, env.URL, modelDisplay)
+		fmt.Printf("%s%s (%s) [%s]\n", prefix, display.DisplayName, display.DisplayURL, display.DisplayModel)
 	}
 }
 
@@ -285,10 +473,14 @@ func basicInteractiveSelection(config Config, caps terminalCapabilities) (Enviro
 	}
 }
 
-// displayBasicEnvironmentMenu shows menu without ANSI escape sequences
+// displayBasicEnvironmentMenu shows menu without ANSI escape sequences but with responsive layout
 func displayBasicEnvironmentMenu(environments []Environment, selectedIndex int) {
 	fmt.Print("\n") // Simple newline instead of clear screen
 	fmt.Println("Select environment (use arrows, Enter to confirm, Esc to cancel):")
+	
+	// Detect terminal layout and create formatter
+	layout := detectTerminalLayout()
+	formatter := newDisplayFormatter(layout)
 	
 	for i, env := range environments {
 		prefix := "  "
@@ -296,12 +488,10 @@ func displayBasicEnvironmentMenu(environments []Environment, selectedIndex int) 
 			prefix = "* " // Simple asterisk instead of arrow character
 		}
 		
-		modelDisplay := "default"
-		if env.Model != "" {
-			modelDisplay = env.Model
-		}
+		// Format environment with responsive layout
+		display := formatter.formatEnvironmentForDisplay(env)
 		
-		fmt.Printf("%s%s (%s) [%s]\n", prefix, env.Name, env.URL, modelDisplay)
+		fmt.Printf("%s%s (%s) [%s]\n", prefix, display.DisplayName, display.DisplayURL, display.DisplayModel)
 	}
 }
 
@@ -427,7 +617,7 @@ func selectEnvironment(config Config) (Environment, error) {
 	return selectEnvironmentWithArrows(config)
 }
 
-// selectEnvironmentOriginal is the original numbered selection implementation
+// selectEnvironmentOriginal is the numbered selection implementation with responsive layout
 func selectEnvironmentOriginal(config Config) (Environment, error) {
 	if len(config.Environments) == 0 {
 		return Environment{}, fmt.Errorf("no environments configured - use 'add' command to create one")
@@ -437,17 +627,20 @@ func selectEnvironmentOriginal(config Config) (Environment, error) {
 		return config.Environments[0], nil
 	}
 	
-	// Display environments
+	// Display environments with responsive formatting
 	if _, err := fmt.Println("Select environment:"); err != nil {
 		return Environment{}, fmt.Errorf("failed to display menu: %w", err)
 	}
 	
+	// Detect terminal layout and create formatter
+	layout := detectTerminalLayout()
+	formatter := newDisplayFormatter(layout)
+	
 	for i, env := range config.Environments {
-		modelDisplay := "default"
-		if env.Model != "" {
-			modelDisplay = env.Model
-		}
-		if _, err := fmt.Printf("%d. %s (%s) [%s]\n", i+1, env.Name, env.URL, modelDisplay); err != nil {
+		// Format environment with responsive layout
+		display := formatter.formatEnvironmentForDisplay(env)
+		
+		if _, err := fmt.Printf("%d. %s (%s) [%s]\n", i+1, display.DisplayName, display.DisplayURL, display.DisplayModel); err != nil {
 			return Environment{}, fmt.Errorf("failed to display environment option: %w", err)
 		}
 	}
@@ -559,7 +752,7 @@ func promptForEnvironment(config Config) (Environment, error) {
 	return env, nil
 }
 
-// displayEnvironments formats and shows the environment list with API key masking
+// displayEnvironments formats and shows the environment list with responsive layout and API key masking
 func displayEnvironments(config Config) error {
 	if len(config.Environments) == 0 {
 		if _, err := fmt.Println("No environments configured."); err != nil {
@@ -575,27 +768,35 @@ func displayEnvironments(config Config) error {
 		return fmt.Errorf("failed to display header: %w", err)
 	}
 	
+	// Detect terminal layout for responsive formatting
+	layout := detectTerminalLayout()
+	formatter := newDisplayFormatter(layout)
+	
 	for _, env := range config.Environments {
 		// Mask API key (show only first 4 and last 4 characters)
 		maskedKey := maskAPIKey(env.APIKey)
 		
-		// Display model or "default" if not set
-		modelDisplay := env.Model
-		if modelDisplay == "" {
-			modelDisplay = "default"
-		}
+		// Format environment with responsive layout
+		display := formatter.formatEnvironmentForDisplay(env)
 		
-		if _, err := fmt.Printf("\n  Name:  %s\n", env.Name); err != nil {
+		if _, err := fmt.Printf("\n  Name:  %s\n", display.DisplayName); err != nil {
 			return fmt.Errorf("failed to display environment name: %w", err)
 		}
-		if _, err := fmt.Printf("  URL:   %s\n", env.URL); err != nil {
+		if _, err := fmt.Printf("  URL:   %s\n", display.DisplayURL); err != nil {
 			return fmt.Errorf("failed to display environment URL: %w", err)
 		}
-		if _, err := fmt.Printf("  Model: %s\n", modelDisplay); err != nil {
+		if _, err := fmt.Printf("  Model: %s\n", display.DisplayModel); err != nil {
 			return fmt.Errorf("failed to display model: %w", err)
 		}
 		if _, err := fmt.Printf("  Key:   %s\n", maskedKey); err != nil {
 			return fmt.Errorf("failed to display masked API key: %w", err)
+		}
+		
+		// Show truncation warning if any fields were truncated
+		if len(display.TruncatedFields) > 0 {
+			if _, err := fmt.Printf("  (Truncated: %s)\n", strings.Join(display.TruncatedFields, ", ")); err != nil {
+				return fmt.Errorf("failed to display truncation warning: %w", err)
+			}
 		}
 	}
 	

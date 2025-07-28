@@ -146,7 +146,7 @@ func launchClaudeCodeWithOutput(env Environment, args []string) error {
 	}
 
 	// Create command
-	cmd := exec.Command("claude-code", args...)
+	cmd := exec.Command("claude", args...)
 	cmd.Env = envVars
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

@@ -152,7 +152,7 @@ func TestRunDefaultMoreCoverage(t *testing.T) {
 		}
 		
 		// This will fail when trying to launch claude-code, but we can test up to that point
-		err := runDefault("test-default")
+		err := runDefault("test-default", []string{})
 		if err == nil {
 			t.Error("Expected error when claude-code is not available")
 		}
@@ -177,7 +177,7 @@ func TestRunDefaultMoreCoverage(t *testing.T) {
 		}
 		
 		// With single environment, should select it automatically and try to launch
-		err := runDefault("")
+		err := runDefault("", []string{})
 		if err == nil {
 			t.Error("Expected error when claude-code is not available")
 		}
