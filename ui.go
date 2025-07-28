@@ -47,11 +47,254 @@ type EnvironmentDisplay struct {
 	TruncatedFields []string // Track what was truncated for user awareness
 }
 
+// DisplayState tracks current display content and manages updates
+type DisplayState struct {
+	// Content tracking
+	currentLines    []string  // Current displayed lines
+	headerLine      string    // Menu header text
+	footerLine      string    // Optional footer/instructions
+	
+	// Terminal info
+	terminalWidth   int       // Current terminal width
+	terminalHeight  int       // Current terminal height
+	
+	// Selection tracking
+	lastSelection   int       // Previous selected index
+	currentSelection int      // Current selected index
+	
+	// State flags
+	initialized     bool      // Display state initialized
+	contentChanged  bool      // Content needs refresh
+	selectionChanged bool     // Only selection indicator changed
+}
+
+// LineContext represents line rendering context for differential updates
+type LineContext struct {
+	lineIndex       int       // Line number (0-based)
+	content         string    // Line content
+	isSelected      bool      // Is this the selected line
+	needsUpdate     bool      // Line content changed
+	previousContent string    // Previous content for comparison
+}
+
 // terminalState manages terminal state restoration
 type terminalState struct {
 	fd       int
 	oldState *term.State
 	restored bool
+}
+
+// initializeDisplayState creates a new DisplayState with terminal dimensions
+func initializeDisplayState() *DisplayState {
+	caps := detectTerminalCapabilities()
+	return &DisplayState{
+		currentLines:     []string{},
+		headerLine:       "",
+		footerLine:       "",
+		terminalWidth:    caps.Width,
+		terminalHeight:   caps.Height,
+		lastSelection:    -1,
+		currentSelection: 0,
+		initialized:      true,
+		contentChanged:   true,
+		selectionChanged: false,
+	}
+}
+
+// UpdateContent updates the display state with new content and selection
+func (ds *DisplayState) UpdateContent(lines []string, selection int) {
+	if !ds.initialized {
+		return
+	}
+	
+	// Check if content changed
+	contentChanged := len(lines) != len(ds.currentLines)
+	if !contentChanged {
+		for i, line := range lines {
+			if i >= len(ds.currentLines) || line != ds.currentLines[i] {
+				contentChanged = true
+				break
+			}
+		}
+	}
+	
+	// Check if only selection changed
+	selectionChanged := selection != ds.currentSelection && !contentChanged
+	
+	// Update state
+	ds.currentLines = make([]string, len(lines))
+	copy(ds.currentLines, lines)
+	ds.lastSelection = ds.currentSelection
+	ds.currentSelection = selection
+	ds.contentChanged = contentChanged
+	ds.selectionChanged = selectionChanged
+}
+
+// ClearDisplay clears the display state and resets to initial state
+func (ds *DisplayState) ClearDisplay() {
+	if !ds.initialized {
+		return
+	}
+	
+	ds.currentLines = []string{}
+	ds.headerLine = ""
+	ds.footerLine = ""
+	ds.lastSelection = -1
+	ds.currentSelection = 0
+	ds.contentChanged = true
+	ds.selectionChanged = false
+}
+
+// RecoverFromError resets display state after errors
+func (ds *DisplayState) RecoverFromError() error {
+	ds.initialized = false
+	ds.currentLines = nil
+	
+	// Reinitialize with simple fallback
+	newState := initializeDisplayState()
+	*ds = *newState
+	
+	return nil
+}
+
+// TextPositioner provides ANSI-free cursor positioning and line control
+type TextPositioner struct {
+	width int
+}
+
+// newTextPositioner creates a TextPositioner with terminal width
+func newTextPositioner(width int) *TextPositioner {
+	return &TextPositioner{
+		width: width,
+	}
+}
+
+// MoveToStartOfLine returns carriage return character to move cursor to line start
+func (tp *TextPositioner) MoveToStartOfLine() string {
+	return "\r"
+}
+
+// ClearToEndOfLine returns padding spaces to clear from cursor to end of line
+func (tp *TextPositioner) ClearToEndOfLine() string {
+	return strings.Repeat(" ", tp.width)
+}
+
+// ClearLine creates a string that clears an entire line using carriage return and spaces
+func (tp *TextPositioner) ClearLine() string {
+	return tp.MoveToStartOfLine() + tp.ClearToEndOfLine() + tp.MoveToStartOfLine()
+}
+
+// OverwriteLine creates a string that overwrites a line with new content
+func (tp *TextPositioner) OverwriteLine(content string) string {
+	// Ensure content doesn't exceed terminal width
+	if len(content) > tp.width {
+		content = content[:tp.width-3] + "..."
+	}
+	
+	// Pad content to full width to clear any remaining characters
+	paddedContent := content + strings.Repeat(" ", tp.width-len(content))
+	
+	return tp.MoveToStartOfLine() + paddedContent + tp.MoveToStartOfLine()
+}
+
+// LineRenderer manages stateful menu rendering with ANSI-free display
+type LineRenderer struct {
+	state       *DisplayState
+	positioner  *TextPositioner
+	useANSI     bool  // Optional enhancement only
+}
+
+// newLineRenderer creates a LineRenderer with display state
+func newLineRenderer(state *DisplayState, useANSI bool) *LineRenderer {
+	return &LineRenderer{
+		state:      state,
+		positioner: newTextPositioner(state.terminalWidth),
+		useANSI:    useANSI,
+	}
+}
+
+// RenderMenu renders the complete environment menu using stateful display
+func (lr *LineRenderer) RenderMenu(environments []Environment, selectedIndex int, header string) {
+	if !lr.state.initialized {
+		return
+	}
+	
+	// Detect terminal layout and create formatter
+	layout := detectTerminalLayout()
+	formatter := newDisplayFormatter(layout)
+	
+	// Build new content lines
+	newLines := []string{}
+	if header != "" {
+		newLines = append(newLines, header)
+	}
+	
+	for i, env := range environments {
+		prefix := "  "
+		if i == selectedIndex {
+			if lr.useANSI {
+				prefix = "► " // Use arrow for ANSI-enabled terminals
+			} else {
+				prefix = "* " // Use asterisk for basic terminals
+			}
+		}
+		
+		// Format complete line to fit within terminal width
+		line := formatter.formatSingleLine(prefix, env)
+		newLines = append(newLines, line)
+	}
+	
+	// Update display state
+	lr.state.UpdateContent(newLines, selectedIndex)
+	
+	// Render based on what changed
+	if lr.state.contentChanged {
+		lr.renderFullContent()
+	} else if lr.state.selectionChanged {
+		lr.renderSelectionChange(environments, formatter)
+	}
+}
+
+// renderFullContent renders all content lines (used when content changes)
+func (lr *LineRenderer) renderFullContent() {
+	// Clear the screen first to prevent content stacking
+	clearScreen()
+	
+	// For ANSI-free display, we simply print all lines fresh
+	// This avoids complex cursor positioning issues
+	for i, line := range lr.state.currentLines {
+		if i == 0 {
+			// First line - print without newline
+			fmt.Print(lr.positioner.OverwriteLine(line))
+		} else {
+			// Subsequent lines - new line then content
+			fmt.Print("\n")
+			fmt.Print(lr.positioner.OverwriteLine(line))
+		}
+	}
+}
+
+// renderSelectionChange optimized rendering for selection-only changes  
+func (lr *LineRenderer) renderSelectionChange(environments []Environment, formatter *DisplayFormatter) {
+	// For ANSI-free terminals, we'll render the full content when selection changes
+	// This ensures compatibility while still being more efficient than clearScreen
+	lr.renderFullContent()
+}
+
+// moveToLineAndOverwrite moves cursor to specific line and overwrites content
+func (lr *LineRenderer) moveToLineAndOverwrite(lineNum int, content string) {
+	// Move up to the target line using carriage returns and up sequences
+	// For ANSI-free approach, we'll use multiple carriage returns with newlines
+	fmt.Print(strings.Repeat("\r\n", lineNum))
+	fmt.Print(lr.positioner.OverwriteLine(content))
+}
+
+// OverwriteLine overwrites a specific line with new content
+func (lr *LineRenderer) OverwriteLine(lineNum int, content string) {
+	if lineNum >= 0 && lineNum < len(lr.state.currentLines) {
+		lr.state.currentLines[lineNum] = content
+		lr.moveToLineAndOverwrite(lineNum, content)
+	}
 }
 
 // restore terminal state safely
@@ -399,30 +642,67 @@ func parseKeyInput(input []byte) (ArrowKey, rune, error) {
 	return ArrowNone, 0, fmt.Errorf("unrecognized key sequence")
 }
 
-// clearScreen clears the terminal screen
+// clearScreen provides ANSI-free screen clearing using line-by-line approach
 func clearScreen() {
-	fmt.Print("\033[2J\033[H")
+	caps := detectTerminalCapabilities()
+	positioner := newTextPositioner(caps.Width)
+	
+	// Clear multiple lines by overwriting with spaces
+	// Use a reasonable number of lines to clear most content
+	linesToClear := 25
+	if caps.Height > 0 {
+		linesToClear = caps.Height
+	}
+	
+	for i := 0; i < linesToClear; i++ {
+		fmt.Print(positioner.ClearLine())
+		if i < linesToClear-1 {
+			fmt.Print("\n")
+		}
+	}
+	
+	// Move cursor to top by printing enough carriage returns
+	fmt.Print(strings.Repeat("\r", linesToClear))
+}
+
+// Global display state for interactive menu rendering
+var globalDisplayState *DisplayState
+var globalLineRenderer *LineRenderer
+
+// renderMenuStatefully provides centralized stateful rendering for both interactive modes
+func renderMenuStatefully(environments []Environment, selectedIndex int, header string, useANSI bool) {
+	// Initialize global state if needed
+	if globalDisplayState == nil {
+		globalDisplayState = initializeDisplayState()
+		globalLineRenderer = newLineRenderer(globalDisplayState, useANSI)
+		// Clear screen on first initialization to ensure clean start
+		clearScreen()
+	}
+	
+	// Update terminal dimensions in case of resize
+	caps := detectTerminalCapabilities()
+	globalDisplayState.terminalWidth = caps.Width
+	globalDisplayState.terminalHeight = caps.Height
+	globalLineRenderer.positioner = newTextPositioner(caps.Width)
+	
+	// Render using the line renderer
+	globalLineRenderer.RenderMenu(environments, selectedIndex, header)
+}
+
+// cleanupDisplayState cleans up global display state
+func cleanupDisplayState() {
+	if globalDisplayState != nil {
+		globalDisplayState.ClearDisplay()
+		globalDisplayState = nil
+		globalLineRenderer = nil
+	}
 }
 
 // displayEnvironmentMenu shows interactive menu with responsive layout and selection indicator
 func displayEnvironmentMenu(environments []Environment, selectedIndex int) {
-	clearScreen()
-	fmt.Println("Select environment (use ↑↓ arrows, Enter to confirm, Esc to cancel):")
-	
-	// Detect terminal layout and create formatter
-	layout := detectTerminalLayout()
-	formatter := newDisplayFormatter(layout)
-	
-	for i, env := range environments {
-		prefix := "  "
-		if i == selectedIndex {
-			prefix = "► "
-		}
-		
-		// Format complete line to fit within terminal width
-		line := formatter.formatSingleLine(prefix, env)
-		fmt.Println(line)
-	}
+	// Use stateful rendering instead of clearScreen
+	header := "Select environment (use ↑↓ arrows, Enter to confirm, Esc to cancel):"
+	renderMenuStatefully(environments, selectedIndex, header, true)
 }
 
 // selectEnvironmentWithArrows provides 4-tier progressive fallback navigation
@@ -477,6 +757,7 @@ func fullInteractiveSelection(config Config, caps terminalCapabilities) (Environ
 		return basicInteractiveSelection(config, caps)
 	}
 	defer termState.ensureRestore()
+	defer cleanupDisplayState() // Clean up display state on exit
 	
 	selectedIndex := 0
 	buffer := make([]byte, 10)
@@ -521,6 +802,7 @@ func basicInteractiveSelection(config Config, caps terminalCapabilities) (Enviro
 		return fallbackToNumberedSelection(config)
 	}
 	defer termState.ensureRestore()
+	defer cleanupDisplayState() // Clean up display state on exit
 	
 	selectedIndex := 0
 	buffer := make([]byte, 10)
@@ -556,23 +838,9 @@ func basicInteractiveSelection(config Config, caps terminalCapabilities) (Enviro
 
 // displayBasicEnvironmentMenu shows menu without ANSI escape sequences but with responsive layout
 func displayBasicEnvironmentMenu(environments []Environment, selectedIndex int) {
-	fmt.Print("\n") // Simple newline instead of clear screen
-	fmt.Println("Select environment (use arrows, Enter to confirm, Esc to cancel):")
-	
-	// Detect terminal layout and create formatter
-	layout := detectTerminalLayout()
-	formatter := newDisplayFormatter(layout)
-	
-	for i, env := range environments {
-		prefix := "  "
-		if i == selectedIndex {
-			prefix = "* " // Simple asterisk instead of arrow character
-		}
-		
-		// Format complete line to fit within terminal width
-		line := formatter.formatSingleLine(prefix, env)
-		fmt.Println(line)
-	}
+	// Use stateful rendering with ANSI disabled for basic mode
+	header := "Select environment (use arrows, Enter to confirm, Esc to cancel):"
+	renderMenuStatefully(environments, selectedIndex, header, false)
 }
 
 // isHeadlessMode detects if running in a script/pipe environment
