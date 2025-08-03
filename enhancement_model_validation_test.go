@@ -17,8 +17,8 @@ func TestModelValidatorCreation(t *testing.T) {
 		if len(mv.patterns) == 0 {
 			t.Error("Expected default patterns to be loaded")
 		}
-		if !mv.strictMode {
-			t.Error("Expected strict mode to be enabled by default")
+		if mv.strictMode {
+			t.Error("Expected strict mode to be disabled by default (permissive mode)")
 		}
 	})
 

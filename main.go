@@ -15,28 +15,15 @@ type modelValidator struct {
 	strictMode   bool
 }
 
-// newModelValidator creates validator with built-in and custom patterns
+// newModelValidator creates validator with minimal restrictions
 func newModelValidator() *modelValidator {
 	mv := &modelValidator{
 		patterns: []string{
-			// Current Anthropic model patterns
-			`^claude-3-5-sonnet-[0-9]{8}$`,
-			`^claude-3-haiku-[0-9]{8}$`,
-			`^claude-3-opus-[0-9]{8}$`,
-			`^claude-sonnet-[0-9]{8}$`,
-			`^claude-opus-[0-9]{8}$`,
-			`^claude-haiku-[0-9]{8}$`,
-			// Future-proofing patterns for anticipated naming conventions
-			`^claude-4-.*-[0-9]{8}$`,
-			`^claude-sonnet-4-[0-9]{8}$`,
-			`^claude-opus-4-[0-9]{8}$`,
-			`^claude-haiku-4-[0-9]{8}$`,
-			// Version-agnostic patterns with date validation
-			`^claude-(sonnet|opus|haiku)-[0-9]{8}$`,
-			`^claude-[0-9]+(-.+)?-[0-9]{8}$`,
+			// Very permissive pattern - just require 'claude-' prefix
+			`^claude-.+$`,
 		},
 		customConfig: make(map[string][]string),
-		strictMode:   true,
+		strictMode:   false, // Changed to permissive by default
 	}
 	
 	// Load custom patterns from environment variable
@@ -300,7 +287,7 @@ func (mv *modelValidator) validateModelAdaptive(model string) error {
 	
 	// Model doesn't match known patterns
 	if mv.strictMode {
-		return fmt.Errorf("invalid model format. Examples: claude-3-5-sonnet-20241022, claude-3-haiku-20240307, claude-3-opus-20240229")
+		return fmt.Errorf("invalid model format. Model must start with 'claude-'")
 	}
 	
 	// Permissive mode: log warning and continue
