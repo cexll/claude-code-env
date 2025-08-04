@@ -1122,12 +1122,19 @@ func promptForEnvironment(config Config) (Environment, error) {
 			break
 		}
 		
-		// Validate variable name (basic validation)
-		if len(varName) == 0 || strings.Contains(varName, "=") || strings.Contains(varName, " ") {
-			if _, printErr := fmt.Printf("Invalid variable name (no spaces or '=' allowed): %s\n", varName); printErr != nil {
+		// Validate variable name using proper environment variable naming conventions
+		if !isValidEnvVarName(varName) {
+			if _, printErr := fmt.Printf("Invalid variable name '%s'. Must start with letter/underscore and contain only letters, numbers, and underscores.\n", varName); printErr != nil {
 				return Environment{}, fmt.Errorf("failed to display error: %w", printErr)
 			}
 			continue
+		}
+		
+		// Warn about potential conflicts with common system variables
+		if isCommonSystemVar(varName) {
+			if _, printErr := fmt.Printf("Warning: '%s' is a common system variable. This may override existing system settings.\n", varName); printErr != nil {
+				return Environment{}, fmt.Errorf("failed to display warning: %w", printErr)
+			}
 		}
 		
 		// Get variable value
@@ -1208,6 +1215,52 @@ func displayEnvironments(config Config) error {
 	}
 	
 	return nil
+}
+
+// isValidEnvVarName validates environment variable names using proper naming conventions
+func isValidEnvVarName(name string) bool {
+	// Environment variable names should:
+	// - Start with a letter (A-Z, a-z) or underscore (_)
+	// - Contain only letters, numbers, and underscores
+	// - Not be empty
+	if len(name) == 0 {
+		return false
+	}
+	
+	// Check first character
+	first := name[0]
+	if !((first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z') || first == '_') {
+		return false
+	}
+	
+	// Check remaining characters
+	for i := 1; i < len(name); i++ {
+		char := name[i]
+		if !((char >= 'A' && char <= 'Z') || (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') || char == '_') {
+			return false
+		}
+	}
+	
+	return true
+}
+
+// isCommonSystemVar checks if the variable name might conflict with common system variables
+func isCommonSystemVar(name string) bool {
+	commonVars := []string{
+		"PATH", "HOME", "USER", "SHELL", "TERM", "LANG", "LC_ALL", "PWD", "OLDPWD",
+		"TMPDIR", "TMP", "TEMP", "EDITOR", "PAGER", "BROWSER", "DISPLAY", "XDG_CONFIG_HOME",
+		"GOPATH", "GOROOT", "JAVA_HOME", "NODE_ENV", "PYTHONPATH", "CLASSPATH",
+		"LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH", "PKG_CONFIG_PATH",
+	}
+	
+	upperName := strings.ToUpper(name)
+	for _, commonVar := range commonVars {
+		if upperName == commonVar {
+			return true
+		}
+	}
+	
+	return false
 }
 
 // maskAPIKey masks an API key showing only first and last few characters

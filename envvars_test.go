@@ -190,3 +190,76 @@ func TestEmptyEnvVars(t *testing.T) {
 		t.Error("Basic ANTHROPIC environment variables should still be set with nil EnvVars")
 	}
 }
+
+func TestValidateEnvVarNames(t *testing.T) {
+	// Test valid environment variable names
+	validNames := []string{
+		"VALID_VAR",
+		"_VALID_VAR",
+		"VAR_123",
+		"a",
+		"_",
+		"ABC_123_DEF",
+		"lower_case_var",
+		"MixedCase_123",
+	}
+
+	for _, name := range validNames {
+		if !isValidEnvVarName(name) {
+			t.Errorf("Expected '%s' to be valid, but validation failed", name)
+		}
+	}
+
+	// Test invalid environment variable names
+	invalidNames := []string{
+		"",           // empty
+		"123VAR",     // starts with number
+		"VAR-NAME",   // contains dash
+		"VAR NAME",   // contains space
+		"VAR=VALUE",  // contains equals
+		"VAR@HOME",   // contains special character
+		"-VAR",       // starts with dash
+		"VAR.NAME",   // contains dot
+	}
+
+	for _, name := range invalidNames {
+		if isValidEnvVarName(name) {
+			t.Errorf("Expected '%s' to be invalid, but validation passed", name)
+		}
+	}
+}
+
+func TestCommonSystemVarDetection(t *testing.T) {
+	// Test detection of common system variables
+	commonVars := []string{
+		"PATH",
+		"HOME", 
+		"USER",
+		"SHELL",
+		"GOPATH",
+		"JAVA_HOME",
+		"path",      // lowercase should also be detected
+		"home",
+		"java_home",
+	}
+
+	for _, varName := range commonVars {
+		if !isCommonSystemVar(varName) {
+			t.Errorf("Expected '%s' to be detected as common system variable", varName)
+		}
+	}
+
+	// Test non-system variables
+	nonSystemVars := []string{
+		"ANTHROPIC_API_KEY",
+		"MY_CUSTOM_VAR",
+		"APP_SECRET",
+		"DATABASE_URL",
+	}
+
+	for _, varName := range nonSystemVars {
+		if isCommonSystemVar(varName) {
+			t.Errorf("Expected '%s' to NOT be detected as common system variable", varName)
+		}
+	}
+}
