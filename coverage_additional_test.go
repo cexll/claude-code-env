@@ -158,7 +158,7 @@ func TestRunDefaultMoreCoverage(t *testing.T) {
 
 		// Test the components that runDefault uses, but avoid calling launchClaudeCode
 		// which would replace the test process via syscall.Exec
-		
+
 		// 1. Test config loading
 		loadedConfig, err := loadConfig()
 		if err != nil {
