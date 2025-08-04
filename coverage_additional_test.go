@@ -9,7 +9,7 @@ import (
 )
 
 func TestRunAddSimulated(t *testing.T) {
-	// Create temporary directory for testing  
+	// Create temporary directory for testing
 	tempDir, err := ioutil.TempDir("", "cce-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
@@ -32,7 +32,7 @@ func TestRunAddSimulated(t *testing.T) {
 		// Simulate adding environment
 		env := Environment{
 			Name:   "test-add",
-			URL:    "https://api.anthropic.com", 
+			URL:    "https://api.anthropic.com",
 			APIKey: "sk-ant-api03-testadd1234567890",
 		}
 
@@ -66,10 +66,10 @@ func TestUIFunctionsMoreCoverage(t *testing.T) {
 	t.Run("regularInput simulation", func(t *testing.T) {
 		// Test that regularInput would handle errors properly by testing its error paths
 		// We can't easily test the actual input reading without complex mocking
-		
+
 		// Test validation logic that would be used with regularInput
 		testInputs := []string{"", "valid-name", "name with spaces", "verylongnamethatexceedsthelimitofcharacters123456789"}
-		
+
 		for _, input := range testInputs {
 			err := validateName(input)
 			// The function should properly validate these inputs
@@ -89,19 +89,24 @@ func TestUIFunctionsMoreCoverage(t *testing.T) {
 			APIKey: "sk-ant-api03-prod1234567890abcdef",
 		}
 		env2 := Environment{
-			Name:   "staging", 
+			Name:   "staging",
 			URL:    "https://staging.anthropic.com",
 			APIKey: "sk-ant-api03-staging1234567890abcdef",
 		}
 
 		config := Config{Environments: []Environment{env1, env2}}
-		
-		// This will fail because it tries to read from stdin, but we can test the setup
-		_, err := selectEnvironment(config)
-		if err == nil {
-			t.Error("Expected error due to no input available")
+
+		// In headless mode (test environment), selectEnvironment automatically uses first environment
+		selectedEnv, err := selectEnvironment(config)
+		if err != nil {
+			t.Errorf("Unexpected error in headless mode: %v", err)
 		}
-		
+
+		// Verify it selected the first environment (headless mode behavior)
+		if selectedEnv.Name != "prod" {
+			t.Errorf("Expected first environment 'prod', got %s", selectedEnv.Name)
+		}
+
 		// But we can verify the environment list setup worked
 		if len(config.Environments) != 2 {
 			t.Errorf("Expected 2 environments, got %d", len(config.Environments))
@@ -117,7 +122,7 @@ func TestUIFunctionsMoreCoverage(t *testing.T) {
 		}
 
 		config := Config{Environments: tests}
-		
+
 		err := displayEnvironments(config)
 		if err != nil {
 			t.Errorf("displayEnvironments() failed: %v", err)
@@ -145,21 +150,42 @@ func TestRunDefaultMoreCoverage(t *testing.T) {
 			URL:    "https://api.anthropic.com",
 			APIKey: "sk-ant-api03-testdefault1234567890",
 		}
-		
+
 		config := Config{Environments: []Environment{env}}
 		if err := saveConfig(config); err != nil {
 			t.Fatalf("Failed to save test config: %v", err)
 		}
+
+		// Test the components that runDefault uses, but avoid calling launchClaudeCode
+		// which would replace the test process via syscall.Exec
 		
-		// This will fail when trying to launch claude-code, but we can test up to that point
-		err := runDefault("test-default", []string{})
-		if err == nil {
-			t.Error("Expected error when claude-code is not available")
+		// 1. Test config loading
+		loadedConfig, err := loadConfig()
+		if err != nil {
+			t.Fatalf("loadConfig() failed: %v", err)
 		}
-		
-		// Should contain launcher error message
-		if !strings.Contains(err.Error(), "claude-code") {
-			t.Errorf("Expected claude-code error, got: %v", err)
+
+		// 2. Test environment finding
+		index, exists := findEnvironmentByName(loadedConfig, "test-default")
+		if !exists {
+			t.Error("Expected to find test-default environment")
+		}
+		if index != 0 {
+			t.Errorf("Expected environment at index 0, got %d", index)
+		}
+
+		// 3. Test environment validation
+		selectedEnv := loadedConfig.Environments[index]
+		if err := validateEnvironment(selectedEnv); err != nil {
+			t.Errorf("Environment validation failed: %v", err)
+		}
+
+		// 4. Test that claude-code launcher would be called (but don't actually call it)
+		if err := checkClaudeCodeExists(); err != nil {
+			// This is expected if claude-code is not installed
+			if !strings.Contains(err.Error(), "claude Code not found") {
+				t.Errorf("Unexpected claude check error: %v", err)
+			}
 		}
 	})
 
@@ -170,21 +196,31 @@ func TestRunDefaultMoreCoverage(t *testing.T) {
 			URL:    "https://api.anthropic.com",
 			APIKey: "sk-ant-api03-onlyenv1234567890",
 		}
-		
+
 		config := Config{Environments: []Environment{env}}
 		if err := saveConfig(config); err != nil {
 			t.Fatalf("Failed to save test config: %v", err)
 		}
-		
-		// With single environment, should select it automatically and try to launch
-		err := runDefault("", []string{})
-		if err == nil {
-			t.Error("Expected error when claude-code is not available")
+
+		// Test the components that runDefault uses for interactive selection
+		loadedConfig, err := loadConfig()
+		if err != nil {
+			t.Fatalf("loadConfig() failed: %v", err)
 		}
-		
-		// Should contain launcher error message
-		if !strings.Contains(err.Error(), "claude-code") {
-			t.Errorf("Expected claude-code error, got: %v", err)
+
+		// With single environment, selectEnvironment should return it directly
+		selectedEnv, err := selectEnvironment(loadedConfig)
+		if err != nil {
+			t.Errorf("selectEnvironment() failed: %v", err)
+		}
+
+		if selectedEnv.Name != "only-env" {
+			t.Errorf("Expected 'only-env', got %s", selectedEnv.Name)
+		}
+
+		// Test environment validation
+		if err := validateEnvironment(selectedEnv); err != nil {
+			t.Errorf("Environment validation failed: %v", err)
 		}
 	})
 }
@@ -205,7 +241,7 @@ func TestHandleCommandMoreCoverage(t *testing.T) {
 	t.Run("handleCommand with add command", func(t *testing.T) {
 		// This would require user input, but we can test that it routes correctly
 		err := handleCommand([]string{"add"})
-		
+
 		// Should fail due to lack of input, but should route to runAdd
 		if err == nil {
 			t.Error("Expected error due to interactive input required")
@@ -219,24 +255,24 @@ func TestHandleCommandMoreCoverage(t *testing.T) {
 			URL:    "https://api.anthropic.com",
 			APIKey: "sk-ant-api03-toremove1234567890",
 		}
-		
+
 		config := Config{Environments: []Environment{env}}
 		if err := saveConfig(config); err != nil {
 			t.Fatalf("Failed to save test config: %v", err)
 		}
-		
+
 		// Remove the environment
 		err := handleCommand([]string{"remove", "to-remove"})
 		if err != nil {
 			t.Errorf("handleCommand(remove) failed: %v", err)
 		}
-		
+
 		// Verify it was removed
 		loadedConfig, err := loadConfig()
 		if err != nil {
 			t.Fatalf("loadConfig() failed: %v", err)
 		}
-		
+
 		if len(loadedConfig.Environments) != 0 {
 			t.Errorf("Expected 0 environments after removal, got %d", len(loadedConfig.Environments))
 		}
@@ -262,25 +298,25 @@ func TestConfigErrorPaths(t *testing.T) {
 			URL:    "https://api.anthropic.com",
 			APIKey: "sk-ant-api03-atomictest1234567890",
 		}
-		
+
 		config := Config{Environments: []Environment{env}}
-		
+
 		// Test that saveConfig creates proper atomic operation
 		if err := saveConfig(config); err != nil {
 			t.Fatalf("saveConfig() failed: %v", err)
 		}
-		
+
 		// Verify the file exists and has correct permissions
 		configPath, _ := getConfigPath()
 		info, err := os.Stat(configPath)
 		if err != nil {
 			t.Fatalf("Failed to stat config file: %v", err)
 		}
-		
+
 		if info.Mode().Perm() != 0600 {
 			t.Errorf("Config file permissions: got %o, want 0600", info.Mode().Perm())
 		}
-		
+
 		// Check that temp file was cleaned up (should not exist)
 		tempPath := configPath + ".tmp"
 		if _, err := os.Stat(tempPath); !os.IsNotExist(err) {
@@ -295,16 +331,16 @@ func TestConfigErrorPaths(t *testing.T) {
 			t.Fatalf("Failed to create temp dir: %v", err)
 		}
 		defer os.RemoveAll(tempDir2)
-		
+
 		// Override config path to point to a file instead of directory
 		nonDirPath := filepath.Join(tempDir2, "config-should-be-dir")
 		configPathOverride = filepath.Join(nonDirPath, "config.json")
-		
+
 		// Create a file where the directory should be
 		if err := ioutil.WriteFile(nonDirPath, []byte("not a directory"), 0600); err != nil {
 			t.Fatalf("Failed to create file: %v", err)
 		}
-		
+
 		// ensureConfigDir should fail
 		err = ensureConfigDir()
 		if err == nil {
@@ -313,7 +349,7 @@ func TestConfigErrorPaths(t *testing.T) {
 		if !strings.Contains(err.Error(), "not a directory") {
 			t.Errorf("Expected 'not a directory' error, got: %v", err)
 		}
-		
+
 		// Restore original override
 		configPathOverride = filepath.Join(tempDir, ".claude-code-env", "config.json")
 	})
@@ -330,7 +366,7 @@ func TestSecureInputErrorPaths(t *testing.T) {
 		// which is fine for the test
 		return
 	}
-	
+
 	// If we get an error, it should be about terminal requirements
 	if !strings.Contains(err.Error(), "terminal") {
 		t.Errorf("Expected terminal-related error, got: %v", err)
@@ -343,10 +379,10 @@ func TestLauncherFunctionsCoverage(t *testing.T) {
 		// Save original PATH
 		originalPath := os.Getenv("PATH")
 		defer os.Setenv("PATH", originalPath)
-		
+
 		// Test with empty PATH to ensure command not found
 		os.Setenv("PATH", "")
-		
+
 		err := checkClaudeCodeExists()
 		if err == nil {
 			t.Error("Expected error when claude-code not in PATH")
@@ -355,39 +391,39 @@ func TestLauncherFunctionsCoverage(t *testing.T) {
 			t.Errorf("Expected PATH error, got: %v", err)
 		}
 	})
-	
+
 	t.Run("launchClaudeCode with valid environment", func(t *testing.T) {
 		env := Environment{
 			Name:   "test-launch",
 			URL:    "https://api.anthropic.com",
 			APIKey: "sk-ant-api03-testlaunch1234567890",
 		}
-		
+
 		// This will fail because claude-code is not available, but tests the code path
 		err := launchClaudeCode(env, []string{"--help"})
 		if err == nil {
 			t.Error("Expected error when claude-code not available")
 		}
-		
+
 		// Should contain appropriate error message
 		if !strings.Contains(err.Error(), "claude-code") {
 			t.Errorf("Expected claude-code error, got: %v", err)
 		}
 	})
-	
+
 	t.Run("launchClaudeCodeWithOutput with valid environment", func(t *testing.T) {
 		env := Environment{
 			Name:   "test-launch-output",
 			URL:    "https://api.anthropic.com",
 			APIKey: "sk-ant-api03-testlaunchout1234567890",
 		}
-		
+
 		// This will fail because claude-code is not available, but tests the code path
 		err := launchClaudeCodeWithOutput(env, []string{"--help"})
 		if err == nil {
 			t.Error("Expected error when claude-code not available")
 		}
-		
+
 		// Should contain appropriate error message
 		if !strings.Contains(err.Error(), "claude-code") {
 			t.Errorf("Expected claude-code error, got: %v", err)
@@ -399,7 +435,7 @@ func TestLauncherFunctionsCoverage(t *testing.T) {
 func TestPromptForEnvironmentLogic(t *testing.T) {
 	// Test the validation logic that promptForEnvironment would use
 	config := Config{Environments: []Environment{}}
-	
+
 	// Test duplicate detection logic
 	existingEnv := Environment{
 		Name:   "existing",
@@ -407,19 +443,19 @@ func TestPromptForEnvironmentLogic(t *testing.T) {
 		APIKey: "sk-ant-api03-existing1234567890",
 	}
 	config.Environments = append(config.Environments, existingEnv)
-	
+
 	// Test finding existing environment
 	_, exists := findEnvironmentByName(config, "existing")
 	if !exists {
 		t.Error("Expected to find existing environment")
 	}
-	
+
 	// Test not finding non-existent environment
 	_, exists = findEnvironmentByName(config, "nonexistent")
 	if exists {
 		t.Error("Expected not to find non-existent environment")
 	}
-	
+
 	// Test validation of new environment fields
 	testCases := []struct {
 		name   string
@@ -429,10 +465,10 @@ func TestPromptForEnvironmentLogic(t *testing.T) {
 	}{
 		{"valid-new", "https://api.anthropic.com", "sk-ant-api03-validnew1234567890", true},
 		{"", "https://api.anthropic.com", "sk-ant-api03-test1234567890", false}, // empty name
-		{"test", "invalid-url", "sk-ant-api03-test1234567890", false},          // invalid URL
+		{"test", "invalid-url", "sk-ant-api03-test1234567890", false},           // invalid URL
 		{"test", "https://api.anthropic.com", "short", false},                   // invalid API key
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run("validate_"+tc.name, func(t *testing.T) {
 			env := Environment{
@@ -440,7 +476,7 @@ func TestPromptForEnvironmentLogic(t *testing.T) {
 				URL:    tc.url,
 				APIKey: tc.apiKey,
 			}
-			
+
 			// Validate the environment
 			err := validateEnvironment(env)
 			if tc.valid && err != nil {
@@ -451,7 +487,7 @@ func TestPromptForEnvironmentLogic(t *testing.T) {
 			}
 		})
 	}
-	
+
 	// Test duplicate detection separately
 	t.Run("duplicate_detection", func(t *testing.T) {
 		_, exists := findEnvironmentByName(config, "existing")
@@ -472,13 +508,13 @@ func TestMainFunctionComponents(t *testing.T) {
 		{"claude-code not found", 3},
 		{"general error", 1},
 	}
-	
+
 	for _, te := range testErrors {
 		t.Run("error_classification_"+te.errorMsg, func(t *testing.T) {
 			// Test the error classification logic from main()
 			errorStr := te.errorMsg
 			var expectedCode int
-			
+
 			switch {
 			case strings.Contains(errorStr, "configuration"):
 				expectedCode = 2
@@ -487,7 +523,7 @@ func TestMainFunctionComponents(t *testing.T) {
 			default:
 				expectedCode = 1
 			}
-			
+
 			if expectedCode != te.expectedCode {
 				t.Errorf("Error classification mismatch: got %d, want %d for error %q", expectedCode, te.expectedCode, errorStr)
 			}
@@ -506,14 +542,14 @@ func TestRunListErrorPaths(t *testing.T) {
 
 	originalConfigPath := configPathOverride
 	defer func() { configPathOverride = originalConfigPath }()
-	
+
 	// Create a directory where the config file should be (to cause read error)
 	invalidPath := filepath.Join(tempDir, "config.json")
 	if err := os.MkdirAll(invalidPath, 0755); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 	configPathOverride = invalidPath
-	
+
 	err = runList()
 	if err == nil {
 		t.Error("Expected error when config path is a directory")
@@ -521,7 +557,7 @@ func TestRunListErrorPaths(t *testing.T) {
 	// The error should come from trying to read a directory as a file
 }
 
-// TestRunRemoveErrorPaths tests runRemove function error scenarios  
+// TestRunRemoveErrorPaths tests runRemove function error scenarios
 func TestRunRemoveErrorPaths(t *testing.T) {
 	t.Run("invalid name", func(t *testing.T) {
 		err := runRemove("")
@@ -532,7 +568,7 @@ func TestRunRemoveErrorPaths(t *testing.T) {
 			t.Errorf("Expected invalid name error, got: %v", err)
 		}
 	})
-	
+
 	t.Run("config loading error", func(t *testing.T) {
 		// Create a temporary directory first
 		tempDir, err := ioutil.TempDir("", "cce-test")
@@ -543,14 +579,14 @@ func TestRunRemoveErrorPaths(t *testing.T) {
 
 		originalConfigPath := configPathOverride
 		defer func() { configPathOverride = originalConfigPath }()
-		
+
 		// Create a directory where the config file should be (to cause read error)
 		invalidPath := filepath.Join(tempDir, "config.json")
 		if err := os.MkdirAll(invalidPath, 0755); err != nil {
 			t.Fatalf("Failed to create directory: %v", err)
 		}
 		configPathOverride = invalidPath
-		
+
 		err = runRemove("test")
 		if err == nil {
 			t.Error("Expected error when config path is a directory")
