@@ -1,0 +1,276 @@
+name: 'Build and Package (Primary CI)'
+
+# This is the primary CI workflow for the repository
+# It provides essential validation, testing, and building functionality
+# Other complex workflows are disabled and available only for manual execution
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+# Ensure only one build per branch at a time
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+# Basic permissions
+permissions:
+  contents: read
+  actions: read
+
+# Environment variables
+env:
+  GO_VERSION: '1.24.5'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # Basic validation
+  validate:
+    name: 'Validate'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Verify Go modules
+        run: |
+          go mod verify
+          go mod tidy
+          if ! git diff --quiet go.mod go.sum; then
+            echo "❌ go.mod or go.sum is not up to date"
+            echo "Please run 'go mod tidy' and commit the changes"
+            exit 1
+          fi
+
+      - name: Run basic checks
+        run: |
+          go vet ./...
+          go fmt ./...
+          if ! git diff --quiet; then
+            echo "❌ Code is not properly formatted"
+            echo "Please run 'go fmt ./...' and commit the changes"
+            exit 1
+          fi
+
+  # Run tests
+  test:
+    name: 'Test'
+    runs-on: ubuntu-latest
+    needs: validate
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run tests
+        run: |
+          go test -v -race -coverprofile=coverage.out ./...
+          go tool cover -html=coverage.out -o coverage.html
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            coverage.out
+            coverage.html
+          retention-days: 7
+
+  # Build for multiple platforms
+  build:
+    name: 'Build (${{ matrix.goos }}/${{ matrix.goarch }})'
+    runs-on: ubuntu-latest
+    needs: [validate, test]
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          # Determine binary extension
+          if [ "$GOOS" = "windows" ]; then
+            BINARY_EXT=".exe"
+          else
+            BINARY_EXT=""
+          fi
+
+          # Build binary
+          BINARY_NAME="cce-${GOOS}-${GOARCH}${BINARY_EXT}"
+          echo "Building ${BINARY_NAME}..."
+          
+          go build -ldflags="-s -w" -o "${BINARY_NAME}" .
+          
+          # Verify binary was created
+          if [ ! -f "${BINARY_NAME}" ]; then
+            echo "❌ Failed to create binary: ${BINARY_NAME}"
+            exit 1
+          fi
+          
+          echo "✅ Built ${BINARY_NAME} ($(du -h "${BINARY_NAME}" | cut -f1))"
+
+      - name: Create package
+        run: |
+          GOOS="${{ matrix.goos }}"
+          GOARCH="${{ matrix.goarch }}"
+          VERSION="${{ github.ref_type == 'tag' && github.ref_name || format('{0}', github.sha) }}"
+          
+          # Determine extensions
+          if [ "$GOOS" = "windows" ]; then
+            BINARY_EXT=".exe"
+            ARCHIVE_EXT=".zip"
+          else
+            BINARY_EXT=""
+            ARCHIVE_EXT=".tar.gz"
+          fi
+
+          BINARY_NAME="cce-${GOOS}-${GOARCH}${BINARY_EXT}"
+          PACKAGE_NAME="cce-${VERSION}-${GOOS}-${GOARCH}"
+          
+          # Create package directory
+          mkdir -p "${PACKAGE_NAME}"
+          
+          # Copy binary
+          cp "${BINARY_NAME}" "${PACKAGE_NAME}/cce${BINARY_EXT}"
+          
+          # Copy documentation files if they exist
+          for file in README.md LICENSE CHANGELOG.md; do
+            if [ -f "$file" ]; then
+              cp "$file" "${PACKAGE_NAME}/"
+            fi
+          done
+          
+          # Create install script for Unix-like systems
+          if [ "$GOOS" != "windows" ]; then
+            cat > "${PACKAGE_NAME}/install.sh" << 'EOF'
+          #!/bin/bash
+          set -e
+          
+          BINARY_NAME="cce"
+          INSTALL_DIR="/usr/local/bin"
+          
+          echo "Installing Claude Code Environment Switcher..."
+          
+          if [ "$EUID" -ne 0 ]; then
+            echo "This script requires root privileges. Please run with sudo."
+            exit 1
+          fi
+          
+          cp "$BINARY_NAME" "$INSTALL_DIR/"
+          chmod +x "$INSTALL_DIR/$BINARY_NAME"
+          
+          echo "✅ Installation complete!"
+          echo "Run: $BINARY_NAME --help"
+          EOF
+            chmod +x "${PACKAGE_NAME}/install.sh"
+          fi
+          
+          # Create archive
+          if [ "$GOOS" = "windows" ]; then
+            zip -r "${PACKAGE_NAME}${ARCHIVE_EXT}" "${PACKAGE_NAME}/"
+          else
+            tar -czf "${PACKAGE_NAME}${ARCHIVE_EXT}" "${PACKAGE_NAME}/"
+          fi
+          
+          # Generate checksum
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "${PACKAGE_NAME}${ARCHIVE_EXT}" > "${PACKAGE_NAME}${ARCHIVE_EXT}.sha256"
+          elif command -v shasum >/dev/null 2>&1; then
+            shasum -a 256 "${PACKAGE_NAME}${ARCHIVE_EXT}" > "${PACKAGE_NAME}${ARCHIVE_EXT}.sha256"
+          fi
+          
+          echo "✅ Package created: ${PACKAGE_NAME}${ARCHIVE_EXT}"
+          ls -la "${PACKAGE_NAME}${ARCHIVE_EXT}"*
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            cce-*.tar.gz
+            cce-*.zip
+            cce-*.sha256
+          retention-days: 30
+
+  # Create release summary
+  summary:
+    name: 'Build Summary'
+    runs-on: ubuntu-latest
+    needs: [validate, test, build]
+    if: always()
+    steps:
+      - name: Download all artifacts
+        if: needs.build.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Generate summary
+        run: |
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Status" >> $GITHUB_STEP_SUMMARY
+          echo "- **Validation**: ${{ needs.validate.result == 'success' && '✅ PASS' || '❌ FAIL' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tests**: ${{ needs.test.result == 'success' && '✅ PASS' || '❌ FAIL' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build**: ${{ needs.build.result == 'success' && '✅ PASS' || '❌ FAIL' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Ref**: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **SHA**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.build.result }}" = "success" ]; then
+            echo "### Packages Built" >> $GITHUB_STEP_SUMMARY
+            echo "- Linux (amd64, arm64)" >> $GITHUB_STEP_SUMMARY
+            echo "- macOS (amd64, arm64)" >> $GITHUB_STEP_SUMMARY  
+            echo "- Windows (amd64)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Build artifacts are available in the [Actions tab](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})." >> $GITHUB_STEP_SUMMARY
+          fi
