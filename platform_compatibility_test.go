@@ -144,7 +144,7 @@ func TestPlatformCompatibility(t *testing.T) {
 
 	t.Run("executable_detection", func(t *testing.T) {
 		// Test executable detection across platforms
-		
+
 		// Test with known executables that should exist on most systems
 		platformExecutables := map[string][]string{
 			"windows": {"cmd.exe", "powershell.exe"},
@@ -234,7 +234,7 @@ func TestPlatformCompatibility(t *testing.T) {
 			},
 			{
 				Name:   "emoji-test-🚀",
-				URL:    "https://api.anthropic.com", 
+				URL:    "https://api.anthropic.com",
 				APIKey: "sk-ant-api03-emoji1234567890abcdef1234567890",
 			},
 		}
@@ -298,7 +298,7 @@ func findExecutablePath(executable string) (string, error) {
 		if dir == "" {
 			continue
 		}
-		
+
 		fullPath := filepath.Join(dir, executable)
 		if info, err := os.Stat(fullPath); err == nil {
 			// Check if it's executable (Unix-like systems)
@@ -310,6 +310,6 @@ func findExecutablePath(executable string) (string, error) {
 			return fullPath, nil
 		}
 	}
-	
+
 	return "", os.ErrNotExist
 }

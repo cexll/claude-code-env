@@ -38,7 +38,7 @@ func newModelValidator() *modelValidator {
 		customConfig: make(map[string][]string),
 		strictMode:   true,
 	}
-	
+
 	// Load custom patterns from environment variable
 	if customPatterns := os.Getenv("CCE_MODEL_PATTERNS"); customPatterns != "" {
 		patterns := strings.Split(customPatterns, ",")
@@ -49,32 +49,32 @@ func newModelValidator() *modelValidator {
 			}
 		}
 	}
-	
+
 	// Check if strict mode is disabled
 	if os.Getenv("CCE_MODEL_STRICT") == "false" {
 		mv.strictMode = false
 	}
-	
+
 	return mv
 }
 
 // newModelValidatorWithConfig creates validator with configuration file settings
 func newModelValidatorWithConfig(config Config) *modelValidator {
 	mv := newModelValidator()
-	
+
 	// Override with configuration file settings if available
 	if config.Settings != nil && config.Settings.Validation != nil {
 		validation := config.Settings.Validation
-		
+
 		// Add custom patterns from config
 		if len(validation.ModelPatterns) > 0 {
 			mv.patterns = append(mv.patterns, validation.ModelPatterns...)
 		}
-		
+
 		// Override strict mode setting
 		mv.strictMode = validation.StrictValidation
 	}
-	
+
 	return mv
 }
 
@@ -95,8 +95,8 @@ type Environment struct {
 
 // Config represents the complete configuration with all environments
 type Config struct {
-	Environments []Environment         `json:"environments"`
-	Settings     *ConfigSettings       `json:"settings,omitempty"`
+	Environments []Environment   `json:"environments"`
+	Settings     *ConfigSettings `json:"settings,omitempty"`
 }
 
 // ConfigSettings holds optional configuration settings
@@ -107,15 +107,15 @@ type ConfigSettings struct {
 
 // TerminalSettings configures terminal behavior
 type TerminalSettings struct {
-	ForceFallback      bool   `json:"force_fallback,omitempty"`
-	DisableANSI        bool   `json:"disable_ansi,omitempty"`
-	CompatibilityMode  string `json:"compatibility_mode,omitempty"`
+	ForceFallback     bool   `json:"force_fallback,omitempty"`
+	DisableANSI       bool   `json:"disable_ansi,omitempty"`
+	CompatibilityMode string `json:"compatibility_mode,omitempty"`
 }
 
 // ValidationSettings configures model validation behavior
 type ValidationSettings struct {
-	ModelPatterns      []string `json:"model_patterns,omitempty"`
-	StrictValidation   bool     `json:"strict_validation,omitempty"`
+	ModelPatterns    []string `json:"model_patterns,omitempty"`
+	StrictValidation bool     `json:"strict_validation,omitempty"`
 	// UnknownModelAction string   `json:"unknown_model_action,omitempty"`
 }
 
@@ -128,10 +128,10 @@ type ArgumentParser struct {
 
 // ParseResult contains the results of argument parsing
 type ParseResult struct {
-	CCEFlags    map[string]string
-	ClaudeArgs  []string
-	Subcommand  string
-	Error       error
+	CCEFlags   map[string]string
+	ClaudeArgs []string
+	Subcommand string
+	Error      error
 }
 
 // CCECommand represents a parsed command with environment and claude arguments
@@ -193,21 +193,21 @@ func (ec *errorContext) withRecovery(recovery func() error) *errorContext {
 func (ec *errorContext) formatError(baseErr error) error {
 	var msg strings.Builder
 	msg.WriteString(fmt.Sprintf("%s failed in %s: %v", ec.Operation, ec.Component, baseErr))
-	
+
 	if len(ec.Context) > 0 {
 		msg.WriteString("\nContext:")
 		for key, value := range ec.Context {
 			msg.WriteString(fmt.Sprintf("\n  %s: %s", key, value))
 		}
 	}
-	
+
 	if len(ec.Suggestions) > 0 {
 		msg.WriteString("\nSuggestions:")
 		for _, suggestion := range ec.Suggestions {
 			msg.WriteString(fmt.Sprintf("\n  • %s", suggestion))
 		}
 	}
-	
+
 	return fmt.Errorf("%s", msg.String())
 }
 
@@ -290,25 +290,25 @@ func (mv *modelValidator) validateModelAdaptive(model string) error {
 	if model == "" {
 		return nil // Optional field
 	}
-	
+
 	// Try each pattern for validation
 	for _, pattern := range mv.patterns {
 		if matched, err := regexp.MatchString(pattern, model); err == nil && matched {
 			return nil // Valid model found
 		}
 	}
-	
+
 	// Model doesn't match known patterns
 	if mv.strictMode {
 		return fmt.Errorf("invalid model format. Examples: claude-3-5-sonnet-20241022, claude-3-haiku-20240307, claude-3-opus-20240229")
 	}
-	
+
 	// Permissive mode: log warning and continue
 	if basicFormat, _ := regexp.MatchString(`^claude-.+$`, model); basicFormat {
 		fmt.Fprintf(os.Stderr, "Warning: Unknown model pattern '%s' - continuing in permissive mode\n", model)
 		return nil
 	}
-	
+
 	// Even in permissive mode, require basic format
 	return fmt.Errorf("model must start with 'claude-'. Got: %s", model)
 }
@@ -348,17 +348,17 @@ func parseArguments(args []string) ParseResult {
 	// Phase 1: Scan for CCE flags and -- separator
 	i := 0
 	separatorFound := false
-	
+
 	for i < len(args) {
 		arg := args[i]
-		
+
 		// Check for -- separator
 		if arg == "--" {
 			separatorFound = true
 			i++ // Skip the separator itself
 			break
 		}
-		
+
 		// Check for known CCE flags
 		if arg == "--env" || arg == "-e" {
 			if i+1 >= len(args) {
@@ -369,21 +369,21 @@ func parseArguments(args []string) ParseResult {
 			i += 2 // Skip flag and its value
 			continue
 		}
-		
+
 		if arg == "--help" || arg == "-h" {
 			result.Subcommand = "help"
 			return result
 		}
-		
+
 		// If we encounter an unknown flag or argument, stop CCE processing
 		break
 	}
-	
+
 	// Phase 2: Collect remaining arguments for claude
 	if separatorFound || i < len(args) {
 		result.ClaudeArgs = args[i:]
 	}
-	
+
 	return result
 }
 
@@ -391,16 +391,16 @@ func parseArguments(args []string) ParseResult {
 func validatePassthroughArgs(args []string) error {
 	for _, arg := range args {
 		// Check for potential command injection patterns
-		if strings.Contains(arg, ";") || strings.Contains(arg, "&") || 
-		   strings.Contains(arg, "|") || strings.Contains(arg, "`") ||
-		   strings.Contains(arg, "$(") {
+		if strings.Contains(arg, ";") || strings.Contains(arg, "&") ||
+			strings.Contains(arg, "|") || strings.Contains(arg, "`") ||
+			strings.Contains(arg, "$(") {
 			// Allow these in quoted strings, but warn about potential risks
 			fmt.Fprintf(os.Stderr, "Warning: Argument contains shell metacharacters: %s\n", arg)
 		}
-		
+
 		// Block obvious command injection attempts
 		if strings.Contains(arg, "rm -rf") || strings.Contains(arg, "sudo") ||
-		   strings.Contains(arg, "/etc/passwd") || strings.Contains(arg, "../") {
+			strings.Contains(arg, "/etc/passwd") || strings.Contains(arg, "../") {
 			return fmt.Errorf("potentially dangerous argument rejected: %s", arg)
 		}
 	}
@@ -411,7 +411,7 @@ func main() {
 	if err := handleCommand(os.Args[1:]); err != nil {
 		// Enhanced error categorization with clear messaging
 		errorType := categorizeError(err)
-		
+
 		switch errorType {
 		case "cce_argument":
 			fmt.Fprintf(os.Stderr, "CCE Argument Error: %v\n", err)
@@ -455,40 +455,40 @@ func main() {
 // categorizeError determines the error category for appropriate handling
 func categorizeError(err error) string {
 	errStr := err.Error()
-	
+
 	// CCE argument-related errors
-	if strings.Contains(errStr, "argument parsing") || 
-	   strings.Contains(errStr, "argument validation") ||
-	   strings.Contains(errStr, "flag") && !strings.Contains(errStr, "claude") {
+	if strings.Contains(errStr, "argument parsing") ||
+		strings.Contains(errStr, "argument validation") ||
+		strings.Contains(errStr, "flag") && !strings.Contains(errStr, "claude") {
 		return "cce_argument"
 	}
-	
+
 	// CCE configuration errors
 	if strings.Contains(errStr, "configuration") ||
-	   strings.Contains(errStr, "environment") && !strings.Contains(errStr, "claude") {
+		strings.Contains(errStr, "environment") && !strings.Contains(errStr, "claude") {
 		return "cce_config"
 	}
-	
+
 	// Claude execution errors
 	if strings.Contains(errStr, "Claude Code") ||
-	   strings.Contains(errStr, "claude") && (strings.Contains(errStr, "execution") || strings.Contains(errStr, "process")) {
+		strings.Contains(errStr, "claude") && (strings.Contains(errStr, "execution") || strings.Contains(errStr, "process")) {
 		return "claude_execution"
 	}
-	
+
 	// Terminal errors
 	if strings.Contains(errStr, "terminal") ||
-	   strings.Contains(errStr, "tty") ||
-	   strings.Contains(errStr, "raw mode") {
+		strings.Contains(errStr, "tty") ||
+		strings.Contains(errStr, "raw mode") {
 		return "terminal"
 	}
-	
+
 	// Permission errors
 	if strings.Contains(errStr, "permission") ||
-	   strings.Contains(errStr, "access denied") ||
-	   strings.Contains(errStr, "not executable") {
+		strings.Contains(errStr, "access denied") ||
+		strings.Contains(errStr, "not executable") {
 		return "permission"
 	}
-	
+
 	return "general"
 }
 

@@ -29,7 +29,7 @@ func TestFormatSingleLineWidthCompliance(t *testing.T) {
 			expectMaxLen: 40,
 		},
 		{
-			name:         "Very narrow terminal", 
+			name:         "Very narrow terminal",
 			termWidth:    20,
 			env:          Environment{Name: "test", URL: "https://api.test.com", Model: "default"},
 			prefix:       "1. ",
@@ -53,19 +53,19 @@ func TestFormatSingleLineWidthCompliance(t *testing.T) {
 				SupportsANSI: true,
 				ContentWidth: tc.termWidth - 8,
 			}
-			
+
 			formatter := newDisplayFormatter(layout)
 			line := formatter.formatSingleLine(tc.prefix, tc.env)
-			
+
 			// Check that line doesn't exceed terminal width
 			if len(line) > tc.expectMaxLen {
-				t.Errorf("Line length %d exceeds terminal width %d\nLine: %q", 
+				t.Errorf("Line length %d exceeds terminal width %d\nLine: %q",
 					len(line), tc.expectMaxLen, line)
 			}
-			
+
 			// Check that line contains essential information
 			if !strings.Contains(line, tc.env.Name[:minInt(len(tc.env.Name), 5)]) {
-				t.Errorf("Line should contain part of environment name %q\nLine: %q", 
+				t.Errorf("Line should contain part of environment name %q\nLine: %q",
 					tc.env.Name, line)
 			}
 		})
@@ -76,29 +76,29 @@ func TestFormatSingleLineWidthCompliance(t *testing.T) {
 func TestFormatSingleLineContent(t *testing.T) {
 	layout := TerminalLayout{
 		Width:        80,
-		Height:       24, 
+		Height:       24,
 		SupportsANSI: true,
 		ContentWidth: 72,
 	}
-	
+
 	formatter := newDisplayFormatter(layout)
 	env := Environment{
 		Name:  "production",
 		URL:   "https://api.anthropic.com",
 		Model: "claude-3-sonnet-20241022",
 	}
-	
+
 	line := formatter.formatSingleLine("► ", env)
-	
+
 	// Check format structure
 	if !strings.HasPrefix(line, "► ") {
 		t.Errorf("Line should start with prefix, got: %q", line)
 	}
-	
+
 	if !strings.Contains(line, "(") || !strings.Contains(line, ")") {
 		t.Errorf("Line should contain URL in parentheses, got: %q", line)
 	}
-	
+
 	if !strings.Contains(line, "[") || !strings.Contains(line, "]") {
 		t.Errorf("Line should contain model in brackets, got: %q", line)
 	}
@@ -112,22 +112,22 @@ func TestFormatSingleLineMinimalSpace(t *testing.T) {
 		SupportsANSI: true,
 		ContentWidth: 7,
 	}
-	
+
 	formatter := newDisplayFormatter(layout)
 	env := Environment{
 		Name:  "very-long-environment-name",
 		URL:   "https://very-long-url.com/api/path",
 		Model: "claude-3-sonnet-20241022",
 	}
-	
+
 	line := formatter.formatSingleLine("► ", env)
-	
+
 	// Should not exceed width
 	if len(line) > 15 {
-		t.Errorf("Line length %d exceeds narrow terminal width 15\nLine: %q", 
+		t.Errorf("Line length %d exceeds narrow terminal width 15\nLine: %q",
 			len(line), line)
 	}
-	
+
 	// Should contain some part of the name
 	if !strings.Contains(line, "very") {
 		t.Errorf("Line should contain start of environment name, got: %q", line)

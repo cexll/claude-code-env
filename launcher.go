@@ -43,7 +43,7 @@ func checkClaudeCodeExists() error {
 		errorCtx.addSuggestion("Install Claude Code CLI from https://claude.ai/")
 		errorCtx.addSuggestion("Ensure Claude Code is in your PATH environment variable")
 		errorCtx.addSuggestion("Try running 'claude --version' to verify installation")
-		
+
 		return errorCtx.formatError(fmt.Errorf("claude Code not found in PATH"))
 	}
 
@@ -53,7 +53,7 @@ func checkClaudeCodeExists() error {
 		errorCtx.addContext("path", path)
 		errorCtx.addSuggestion("Check file permissions with: ls -la " + path)
 		errorCtx.addSuggestion("Reinstall Claude Code if file is corrupted")
-		
+
 		return errorCtx.formatError(fmt.Errorf("claude Code path verification failed: %w", err))
 	} else if info.Mode()&0111 == 0 {
 		errorCtx := newErrorContext("permission check", "launcher")
@@ -61,7 +61,7 @@ func checkClaudeCodeExists() error {
 		errorCtx.addContext("permissions", info.Mode().String())
 		errorCtx.addSuggestion("Fix permissions with: chmod +x " + path)
 		errorCtx.addSuggestion("Reinstall Claude Code if permission issues persist")
-		
+
 		return errorCtx.formatError(fmt.Errorf("claude Code found but not executable"))
 	}
 
@@ -93,7 +93,7 @@ func prepareEnvironment(env Environment) ([]string, error) {
 	// Add Anthropic-specific environment variables
 	newEnv = append(newEnv, fmt.Sprintf("ANTHROPIC_BASE_URL=%s", env.URL))
 	newEnv = append(newEnv, fmt.Sprintf("ANTHROPIC_API_KEY=%s", env.APIKey))
-	
+
 	// Add ANTHROPIC_MODEL if specified
 	if env.Model != "" {
 		newEnv = append(newEnv, fmt.Sprintf("ANTHROPIC_MODEL=%s", env.Model))

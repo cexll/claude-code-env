@@ -24,7 +24,7 @@ func TestErrorRecoveryScenarios(t *testing.T) {
 
 	t.Run("corrupted_config_recovery", func(t *testing.T) {
 		configPath, _ := getConfigPath()
-		
+
 		// Create directory first
 		if err := ensureConfigDir(); err != nil {
 			t.Fatalf("ensureConfigDir() failed: %v", err)
@@ -52,7 +52,7 @@ func TestErrorRecoveryScenarios(t *testing.T) {
 				expected: "validation failed",
 			},
 			{
-				name:     "mixed_valid_invalid_environments",
+				name: "mixed_valid_invalid_environments",
 				content: `{
 					"environments": [
 						{"name": "valid", "url": "https://api.anthropic.com", "api_key": "sk-ant-api03-valid1234567890"},
@@ -152,7 +152,7 @@ func TestErrorRecoveryScenarios(t *testing.T) {
 		}
 
 		configPath, _ := getConfigPath()
-		
+
 		// Create directory and initial config
 		if err := ensureConfigDir(); err != nil {
 			t.Fatalf("ensureConfigDir() failed: %v", err)
@@ -201,7 +201,7 @@ func TestErrorRecoveryScenarios(t *testing.T) {
 		// Create a directory where the config file should be
 		configPath, _ := getConfigPath()
 		dirPath := filepath.Dir(configPath)
-		
+
 		if err := os.MkdirAll(configPath, 0755); err != nil {
 			t.Fatalf("Failed to create directory: %v", err)
 		}
@@ -241,7 +241,7 @@ func TestErrorRecoveryScenarios(t *testing.T) {
 	t.Run("partial_write_recovery", func(t *testing.T) {
 		// Test atomic write behavior by simulating partial write scenarios
 		configPath, _ := getConfigPath()
-		
+
 		if err := ensureConfigDir(); err != nil {
 			t.Fatalf("ensureConfigDir() failed: %v", err)
 		}
@@ -264,7 +264,7 @@ func TestErrorRecoveryScenarios(t *testing.T) {
 		// Simulate a partial write by creating a temp file that would conflict
 		tempPath := configPath + ".tmp"
 		partialData := []byte(`{"environments": [{"name": "partial"`)
-		
+
 		if err := ioutil.WriteFile(tempPath, partialData, 0600); err != nil {
 			t.Fatalf("Failed to create partial temp file: %v", err)
 		}
@@ -302,7 +302,7 @@ func TestErrorRecoveryScenarios(t *testing.T) {
 
 	t.Run("environment_validation_recovery", func(t *testing.T) {
 		// Test recovery from validation errors during config operations
-		
+
 		// Start with valid config
 		validEnv := Environment{
 			Name:   "valid-env",

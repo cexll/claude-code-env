@@ -30,12 +30,12 @@ func TestConfigOperationsAdditional(t *testing.T) {
 		// Verify directory was created
 		configPath, _ := getConfigPath()
 		dirPath := filepath.Dir(configPath)
-		
+
 		info, err := os.Stat(dirPath)
 		if err != nil {
 			t.Fatalf("Failed to stat config directory: %v", err)
 		}
-		
+
 		if !info.IsDir() {
 			t.Error("Config path is not a directory")
 		}
@@ -47,9 +47,9 @@ func TestConfigOperationsAdditional(t *testing.T) {
 			URL:    "invalid",
 			APIKey: "invalid",
 		}
-		
+
 		config := Config{Environments: []Environment{invalidEnv}}
-		
+
 		err := saveConfig(config)
 		if err == nil {
 			t.Error("Expected error saving config with invalid environment")
@@ -70,16 +70,16 @@ func TestConfigOperationsAdditional(t *testing.T) {
 				}
 			]
 		}`
-		
+
 		configPath, _ := getConfigPath()
 		if err := ensureConfigDir(); err != nil {
 			t.Fatalf("ensureConfigDir() failed: %v", err)
 		}
-		
+
 		if err := ioutil.WriteFile(configPath, []byte(invalidConfig), 0600); err != nil {
 			t.Fatalf("Failed to write invalid config: %v", err)
 		}
-		
+
 		_, err := loadConfig()
 		if err == nil {
 			t.Error("Expected error loading config with invalid environment")
@@ -110,12 +110,12 @@ func TestRunFunctions(t *testing.T) {
 			URL:    "https://api.anthropic.com",
 			APIKey: "sk-ant-api03-test1234567890",
 		}
-		
+
 		config := Config{Environments: []Environment{env}}
 		if err := saveConfig(config); err != nil {
 			t.Fatalf("Failed to save test config: %v", err)
 		}
-		
+
 		// Test runList
 		if err := runList(); err != nil {
 			t.Errorf("runList() failed: %v", err)
@@ -125,13 +125,13 @@ func TestRunFunctions(t *testing.T) {
 	t.Run("runAdd validation", func(t *testing.T) {
 		// This would require mocking user input, so we test the validation parts
 		config := Config{Environments: []Environment{}}
-		
+
 		validEnv := Environment{
 			Name:   "test-env",
 			URL:    "https://api.anthropic.com",
 			APIKey: "sk-ant-api03-test1234567890",
 		}
-		
+
 		if err := addEnvironmentToConfig(&config, validEnv); err != nil {
 			t.Errorf("Failed to add valid environment: %v", err)
 		}
@@ -160,14 +160,14 @@ func TestRunFunctions(t *testing.T) {
 
 func TestMainFunction(t *testing.T) {
 	// Test the main function indirectly by testing handleCommand
-	
+
 	t.Run("handleCommand with flags", func(t *testing.T) {
 		// Test flag parsing
 		err := handleCommand([]string{"-h"})
 		if err != nil {
 			t.Errorf("handleCommand(-h) failed: %v", err)
 		}
-		
+
 		err = handleCommand([]string{"--help"})
 		if err != nil {
 			t.Errorf("handleCommand(--help) failed: %v", err)
@@ -189,7 +189,7 @@ func TestErrorPaths(t *testing.T) {
 		originalConfigPath := configPathOverride
 		configPathOverride = ""
 		defer func() { configPathOverride = originalConfigPath }()
-		
+
 		// This should work normally
 		_, err := getConfigPath()
 		if err != nil {
@@ -202,11 +202,11 @@ func TestErrorPaths(t *testing.T) {
 		if err := validateName("a"); err != nil {
 			t.Errorf("Single character name should be valid: %v", err)
 		}
-		
+
 		if err := validateURL("http://a"); err != nil {
 			t.Errorf("Minimal valid URL should work: %v", err)
 		}
-		
+
 		if err := validateAPIKey("sk-ant-1234567890"); err != nil {
 			t.Errorf("Minimal valid API key should work: %v", err)
 		}

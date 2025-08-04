@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"strings"
 	"sync"
 	"testing"
 	"time"
-	"os"
 )
 
 // TestFlagPassthroughIntegration validates complete flag passthrough workflows
@@ -54,7 +54,7 @@ func TestFlagPassthroughIntegration(t *testing.T) {
 		for _, scenario := range scenarios {
 			t.Run(scenario.name, func(t *testing.T) {
 				result := parseArguments(scenario.args)
-				
+
 				if scenario.shouldError && result.Error == nil {
 					t.Error("Expected error but got none")
 				}
@@ -95,19 +95,19 @@ func TestFlagPassthroughIntegration(t *testing.T) {
 				expectError: true,
 			},
 			{
-				name:        "pipe injection attempt", 
-				args:        []string{"input", "| cat /etc/passwd"},
-				expectWarn:  true,
+				name:       "pipe injection attempt",
+				args:       []string{"input", "| cat /etc/passwd"},
+				expectWarn: true,
 			},
 			{
-				name:        "command substitution attempt",
-				args:        []string{"test", "$(malicious_command)"},
-				expectWarn:  true,
+				name:       "command substitution attempt",
+				args:       []string{"test", "$(malicious_command)"},
+				expectWarn: true,
 			},
 			{
-				name:        "background process attempt",
-				args:        []string{"cmd", "arg & background_proc"},
-				expectWarn:  true,
+				name:       "background process attempt",
+				args:       []string{"cmd", "arg & background_proc"},
+				expectWarn: true,
 			},
 			{
 				name:        "path traversal attempt",
@@ -115,16 +115,16 @@ func TestFlagPassthroughIntegration(t *testing.T) {
 				expectError: true,
 			},
 			{
-				name:        "legitimate shell-like content in quotes",
-				args:        []string{"analyze", "code with $(function) calls"},
-				expectWarn:  true, // Should warn but not block
+				name:       "legitimate shell-like content in quotes",
+				args:       []string{"analyze", "code with $(function) calls"},
+				expectWarn: true, // Should warn but not block
 			},
 		}
 
 		for _, input := range maliciousInputs {
 			t.Run(input.name, func(t *testing.T) {
 				err := validatePassthroughArgs(input.args)
-				
+
 				if input.expectError && err == nil {
 					t.Error("Expected error for malicious input")
 				}
@@ -213,9 +213,9 @@ func TestUILayoutResponsiveness(t *testing.T) {
 
 			// Test truncation behavior
 			longEnv := Environment{
-				Name:   strings.Repeat("a", formatter.nameWidth+20),
-				URL:    "https://" + strings.Repeat("b", formatter.urlWidth+20) + ".com",
-				Model:  "claude-" + strings.Repeat("c", formatter.modelWidth+20),
+				Name:  strings.Repeat("a", formatter.nameWidth+20),
+				URL:   "https://" + strings.Repeat("b", formatter.urlWidth+20) + ".com",
+				Model: "claude-" + strings.Repeat("c", formatter.modelWidth+20),
 			}
 
 			display := formatter.formatEnvironmentForDisplay(longEnv)
@@ -247,7 +247,7 @@ func TestPerformanceBenchmarks(t *testing.T) {
 
 		for i := 0; i < iterations; i++ {
 			start := time.Now()
-			
+
 			// Simulate full startup sequence
 			_ = detectTerminalCapabilities()
 			_ = detectTerminalLayout()
@@ -279,7 +279,7 @@ func TestPerformanceBenchmarks(t *testing.T) {
 		layout := detectTerminalLayout()
 		formatter := newDisplayFormatter(layout)
 		validator := newModelValidator()
-		
+
 		// Force retention
 		_ = caps
 		_ = formatter
@@ -295,7 +295,7 @@ func TestPerformanceBenchmarks(t *testing.T) {
 		} else {
 			memIncrease = 0 // Memory actually decreased (good!)
 		}
-		
+
 		maxIncrease := uint64(8192) // 8KB limit for all enhancements
 
 		if memIncrease > maxIncrease {
@@ -322,7 +322,7 @@ func TestPerformanceBenchmarks(t *testing.T) {
 					if caps := detectTerminalCapabilities(); caps.Width <= 0 {
 						errors <- fmt.Errorf("invalid terminal width: %d", caps.Width)
 					}
-					
+
 					args := []string{"--env", "test", "--", "cmd", "arg"}
 					if result := parseArguments(args); result.Error != nil {
 						errors <- fmt.Errorf("parsing error: %v", result.Error)
@@ -343,12 +343,12 @@ func TestPerformanceBenchmarks(t *testing.T) {
 // TestTerminalCompatibilityExtensive validates 4-tier terminal fallback system
 func TestTerminalCompatibilityExtensive(t *testing.T) {
 	terminalConfigs := []struct {
-		name           string
-		termEnv        string
-		isTerminal     bool
-		supportsRaw    bool
-		supportsANSI   bool
-		expectedTier   string
+		name         string
+		termEnv      string
+		isTerminal   bool
+		supportsRaw  bool
+		supportsANSI bool
+		expectedTier string
 	}{
 		{"modern_terminal", "xterm-256color", true, true, true, "full_interactive"},
 		{"basic_terminal", "xterm", true, true, false, "basic_interactive"},
@@ -386,7 +386,7 @@ func TestTerminalCompatibilityExtensive(t *testing.T) {
 
 			// This tests the fallback logic without actually requiring user interaction
 			_, err := selectEnvironmentWithArrows(testConfig)
-			
+
 			// Error is expected in test environment, but should be graceful
 			if err != nil && !strings.Contains(err.Error(), "selection") && !strings.Contains(err.Error(), "headless") {
 				t.Errorf("Unexpected error type for %s: %v", config.name, err)
@@ -416,7 +416,7 @@ func TestRegressionPrevention(t *testing.T) {
 		for _, test := range compatibilityTests {
 			t.Run(test.name, func(t *testing.T) {
 				result := parseArguments(test.args)
-				
+
 				// Should not panic or return unexpected errors for valid inputs
 				if strings.Contains(test.name, "help") && result.Subcommand != "help" {
 					t.Errorf("Help command not recognized: %+v", result)
@@ -502,24 +502,24 @@ func TestProductionReadiness(t *testing.T) {
 	t.Run("resource_cleanup", func(t *testing.T) {
 		// Verify proper resource cleanup
 		initialGoroutines := runtime.NumGoroutine()
-		
+
 		// Perform operations that might create resources
 		caps := detectTerminalCapabilities()
 		layout := detectTerminalLayout()
 		formatter := newDisplayFormatter(layout)
-		
+
 		_ = caps
 		_ = formatter
-		
+
 		// Allow cleanup
 		runtime.GC()
 		time.Sleep(10 * time.Millisecond)
-		
+
 		finalGoroutines := runtime.NumGoroutine()
-		
+
 		// Should not have leaked goroutines
 		if finalGoroutines > initialGoroutines+1 { // Allow for test runner goroutine
-			t.Errorf("Potential goroutine leak: started with %d, ended with %d", 
+			t.Errorf("Potential goroutine leak: started with %d, ended with %d",
 				initialGoroutines, finalGoroutines)
 		}
 	})
@@ -548,7 +548,7 @@ func TestProductionReadiness(t *testing.T) {
 func BenchmarkProductionWorkload(b *testing.B) {
 	b.Run("typical_startup_sequence", func(b *testing.B) {
 		args := []string{"--env", "production", "--", "chat", "--model", "claude-3-5-sonnet", "--temperature", "0.7"}
-		
+
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_ = detectTerminalCapabilities()
@@ -560,7 +560,7 @@ func BenchmarkProductionWorkload(b *testing.B) {
 
 	b.Run("ui_layout_calculation", func(b *testing.B) {
 		widths := []int{40, 80, 120, 200}
-		
+
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			for _, width := range widths {
@@ -577,8 +577,8 @@ func BenchmarkProductionWorkload(b *testing.B) {
 
 	b.Run("complex_argument_parsing", func(b *testing.B) {
 		complexArgs := []string{
-			"--env", "production", "--", 
-			"chat", 
+			"--env", "production", "--",
+			"chat",
 			"--model", "claude-3-5-sonnet-20241022",
 			"--temperature", "0.7",
 			"--max-tokens", "4096",
@@ -586,7 +586,7 @@ func BenchmarkProductionWorkload(b *testing.B) {
 			"--output-format", "json",
 			"--stream",
 		}
-		
+
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			result := parseArguments(complexArgs)

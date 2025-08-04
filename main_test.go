@@ -232,7 +232,7 @@ func TestConfigOperations(t *testing.T) {
 
 	t.Run("invalid JSON handling", func(t *testing.T) {
 		configPath, _ := getConfigPath()
-		
+
 		// Ensure directory exists
 		if err := ensureConfigDir(); err != nil {
 			t.Fatalf("ensureConfigDir() failed: %v", err)
@@ -421,7 +421,7 @@ func TestParseArguments(t *testing.T) {
 				Error:      nil,
 			},
 		},
-		
+
 		// Error cases for subcommands
 		{
 			name: "remove without target",
@@ -433,7 +433,7 @@ func TestParseArguments(t *testing.T) {
 				Error:      fmt.Errorf("remove command requires environment name"),
 			},
 		},
-		
+
 		// Empty input
 		{
 			name: "empty args",
@@ -445,7 +445,7 @@ func TestParseArguments(t *testing.T) {
 				Error:      nil,
 			},
 		},
-		
+
 		// Environment flag tests
 		{
 			name: "env flag --env",
@@ -487,7 +487,7 @@ func TestParseArguments(t *testing.T) {
 				Error:      fmt.Errorf("flag -e requires a value"),
 			},
 		},
-		
+
 		// Separator (--) tests
 		{
 			name: "separator at beginning",
@@ -529,7 +529,7 @@ func TestParseArguments(t *testing.T) {
 				Error:      nil,
 			},
 		},
-		
+
 		// Complex argument scenarios
 		{
 			name: "quoted arguments with spaces",
@@ -571,7 +571,7 @@ func TestParseArguments(t *testing.T) {
 				Error:      nil,
 			},
 		},
-		
+
 		// Edge cases with unknown arguments
 		{
 			name: "unknown flag passed through",
@@ -593,7 +593,7 @@ func TestParseArguments(t *testing.T) {
 				Error:      nil,
 			},
 		},
-		
+
 		// Special characters and edge cases
 		{
 			name: "arguments with special shell characters",
@@ -625,7 +625,7 @@ func TestParseArguments(t *testing.T) {
 				Error:      nil,
 			},
 		},
-		
+
 		// Unicode and international characters
 		{
 			name: "unicode arguments",
@@ -637,7 +637,7 @@ func TestParseArguments(t *testing.T) {
 				Error:      nil,
 			},
 		},
-		
+
 		// Binary-like data (simulated with special characters)
 		{
 			name: "arguments with null bytes (escaped)",
@@ -649,7 +649,7 @@ func TestParseArguments(t *testing.T) {
 				Error:      nil,
 			},
 		},
-		
+
 		// Large argument lists (simulated with many args)
 		{
 			name: "many arguments",
@@ -662,16 +662,16 @@ func TestParseArguments(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := parseArguments(tt.args)
-			
+
 			// Compare results
 			if result.Subcommand != tt.expectedResult.Subcommand {
 				t.Errorf("Subcommand mismatch: got %q, want %q", result.Subcommand, tt.expectedResult.Subcommand)
 			}
-			
+
 			// Compare error
 			if (result.Error != nil) != (tt.expectedResult.Error != nil) {
 				t.Errorf("Error presence mismatch: got %v, want %v", result.Error, tt.expectedResult.Error)
@@ -681,7 +681,7 @@ func TestParseArguments(t *testing.T) {
 					t.Errorf("Error message mismatch: got %q, want %q", result.Error.Error(), tt.expectedResult.Error.Error())
 				}
 			}
-			
+
 			// Compare CCE flags
 			if len(result.CCEFlags) != len(tt.expectedResult.CCEFlags) {
 				t.Errorf("CCEFlags length mismatch: got %d, want %d", len(result.CCEFlags), len(tt.expectedResult.CCEFlags))
@@ -691,7 +691,7 @@ func TestParseArguments(t *testing.T) {
 					t.Errorf("CCEFlags[%q] mismatch: got %q, want %q", key, actualValue, expectedValue)
 				}
 			}
-			
+
 			// Compare Claude args
 			if len(result.ClaudeArgs) != len(tt.expectedResult.ClaudeArgs) {
 				t.Errorf("ClaudeArgs length mismatch: got %d, want %d", len(result.ClaudeArgs), len(tt.expectedResult.ClaudeArgs))
@@ -712,28 +712,28 @@ func TestParseArgumentsEdgeCases(t *testing.T) {
 	t.Run("help flag in middle of arguments", func(t *testing.T) {
 		args := []string{"--env", "prod", "--help", "more", "args"}
 		result := parseArguments(args)
-		
+
 		if result.Subcommand != "help" {
 			t.Errorf("Expected help subcommand when --help found, got %q", result.Subcommand)
 		}
 	})
-	
+
 	t.Run("help flag in the middle mixed with other flags", func(t *testing.T) {
 		args := []string{"--env", "staging", "-h", "command"}
 		result := parseArguments(args)
-		
+
 		if result.Subcommand != "help" {
 			t.Errorf("Expected help subcommand when -h found, got %q", result.Subcommand)
 		}
 	})
-	
+
 	t.Run("arguments after environment flag without separator", func(t *testing.T) {
 		args := []string{"--env", "production", "unknown", "args"}
 		result := parseArguments(args)
-		
+
 		expectedFlags := map[string]string{"env": "production"}
 		expectedArgs := []string{"unknown", "args"}
-		
+
 		if len(result.CCEFlags) != len(expectedFlags) {
 			t.Errorf("CCEFlags length mismatch: got %d, want %d", len(result.CCEFlags), len(expectedFlags))
 		}
@@ -744,21 +744,21 @@ func TestParseArgumentsEdgeCases(t *testing.T) {
 			t.Errorf("ClaudeArgs length mismatch: got %d, want %d", len(result.ClaudeArgs), len(expectedArgs))
 		}
 	})
-	
+
 	t.Run("single dash argument", func(t *testing.T) {
 		args := []string{"-"}
 		result := parseArguments(args)
-		
+
 		expectedArgs := []string{"-"}
 		if len(result.ClaudeArgs) != len(expectedArgs) || result.ClaudeArgs[0] != "-" {
 			t.Errorf("Single dash not handled correctly: got %v, want %v", result.ClaudeArgs, expectedArgs)
 		}
 	})
-	
+
 	t.Run("multiple environment flags", func(t *testing.T) {
 		args := []string{"--env", "first", "-e", "second"}
 		result := parseArguments(args)
-		
+
 		// Should capture the last one
 		if result.CCEFlags["env"] != "second" {
 			t.Errorf("Multiple env flags not handled correctly: got %q, want %q", result.CCEFlags["env"], "second")
@@ -835,15 +835,15 @@ func TestValidatePassthroughArgs(t *testing.T) {
 			wantWarn:  false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validatePassthroughArgs(tt.args)
-			
+
 			if (err != nil) != tt.wantError {
 				t.Errorf("validatePassthroughArgs() error = %v, wantError %v", err, tt.wantError)
 			}
-			
+
 			// Note: We can't easily test warning output without capturing stderr,
 			// but the function is designed to print warnings for certain patterns
 		})

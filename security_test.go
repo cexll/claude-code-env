@@ -13,302 +13,302 @@ import (
 // and platform-specific security threat prevention
 func TestShellSafetyValidation(t *testing.T) {
 	tests := []struct {
-		name              string
-		args              []string
-		expectError       bool
-		expectWarning     bool
-		description       string
-		platform          string // "all", "windows", "unix", or specific platform
+		name          string
+		args          []string
+		expectError   bool
+		expectWarning bool
+		description   string
+		platform      string // "all", "windows", "unix", or specific platform
 	}{
 		// Basic safe arguments
 		{
-			name:        "safe arguments",
-			args:        []string{"chat", "--model", "claude-3", "--temperature", "0.7"},
-			expectError: false,
+			name:          "safe arguments",
+			args:          []string{"chat", "--model", "claude-3", "--temperature", "0.7"},
+			expectError:   false,
 			expectWarning: false,
-			description: "Normal safe arguments should pass without warnings",
-			platform:    "all",
+			description:   "Normal safe arguments should pass without warnings",
+			platform:      "all",
 		},
 		{
-			name:        "safe file paths",
-			args:        []string{"upload", "/path/to/file.txt", "--format", "json"},
-			expectError: false,
+			name:          "safe file paths",
+			args:          []string{"upload", "/path/to/file.txt", "--format", "json"},
+			expectError:   false,
 			expectWarning: false,
-			description: "Safe file paths should pass validation",
-			platform:    "all",
+			description:   "Safe file paths should pass validation",
+			platform:      "all",
 		},
-		
+
 		// Shell metacharacter detection tests
 		{
-			name:        "semicolon injection",
-			args:        []string{"command", "normal; echo hello"},
-			expectError: false,
+			name:          "semicolon injection",
+			args:          []string{"command", "normal; echo hello"},
+			expectError:   false,
 			expectWarning: true,
-			description: "Semicolon should trigger warning but not error",
-			platform:    "all",
+			description:   "Semicolon should trigger warning but not error",
+			platform:      "all",
 		},
 		{
-			name:        "semicolon with dangerous command",
-			args:        []string{"command", "normal; rm -rf /"},
-			expectError: true, // This will be blocked due to "rm -rf"
+			name:          "semicolon with dangerous command",
+			args:          []string{"command", "normal; rm -rf /"},
+			expectError:   true, // This will be blocked due to "rm -rf"
 			expectWarning: false,
-			description: "Semicolon with dangerous command should be blocked",
-			platform:    "all",
+			description:   "Semicolon with dangerous command should be blocked",
+			platform:      "all",
 		},
 		{
-			name:        "pipe injection",
-			args:        []string{"command", "input | dangerous_command"},
-			expectError: false,
+			name:          "pipe injection",
+			args:          []string{"command", "input | dangerous_command"},
+			expectError:   false,
 			expectWarning: true,
-			description: "Pipe character should trigger warning",
-			platform:    "all",
+			description:   "Pipe character should trigger warning",
+			platform:      "all",
 		},
 		{
-			name:        "ampersand background",
-			args:        []string{"command", "arg & background_task"},
-			expectError: false,
+			name:          "ampersand background",
+			args:          []string{"command", "arg & background_task"},
+			expectError:   false,
 			expectWarning: true,
-			description: "Ampersand should trigger warning for background execution",
-			platform:    "all",
+			description:   "Ampersand should trigger warning for background execution",
+			platform:      "all",
 		},
 		{
-			name:        "backtick command substitution",
-			args:        []string{"command", "arg `dangerous_command`"},
-			expectError: false,
+			name:          "backtick command substitution",
+			args:          []string{"command", "arg `dangerous_command`"},
+			expectError:   false,
 			expectWarning: true,
-			description: "Backticks should trigger warning for command substitution",
-			platform:    "all",
+			description:   "Backticks should trigger warning for command substitution",
+			platform:      "all",
 		},
 		{
-			name:        "dollar parentheses substitution",
-			args:        []string{"command", "arg $(echo hello)"},
-			expectError: false,
+			name:          "dollar parentheses substitution",
+			args:          []string{"command", "arg $(echo hello)"},
+			expectError:   false,
 			expectWarning: true,
-			description: "Dollar parentheses should trigger warning for command substitution",
-			platform:    "all",
+			description:   "Dollar parentheses should trigger warning for command substitution",
+			platform:      "all",
 		},
 		{
-			name:        "dollar parentheses dangerous",
-			args:        []string{"command", "arg $(rm -rf /)"},
-			expectError: true, // This will be blocked due to "rm -rf"
+			name:          "dollar parentheses dangerous",
+			args:          []string{"command", "arg $(rm -rf /)"},
+			expectError:   true, // This will be blocked due to "rm -rf"
 			expectWarning: false,
-			description: "Dollar parentheses with dangerous command should be blocked",
-			platform:    "all",
+			description:   "Dollar parentheses with dangerous command should be blocked",
+			platform:      "all",
 		},
 		{
-			name:        "redirection operators",
-			args:        []string{"command", "input > output.txt"},
-			expectError: false,
+			name:          "redirection operators",
+			args:          []string{"command", "input > output.txt"},
+			expectError:   false,
 			expectWarning: false, // No metacharacters in this version
-			description: "Output redirection should be safe if not accessing sensitive files",
-			platform:    "all",
+			description:   "Output redirection should be safe if not accessing sensitive files",
+			platform:      "all",
 		},
 		{
-			name:        "redirection to sensitive file",
-			args:        []string{"command", "input > /etc/passwd"},
-			expectError: true, // This will be blocked due to "/etc/passwd"
+			name:          "redirection to sensitive file",
+			args:          []string{"command", "input > /etc/passwd"},
+			expectError:   true, // This will be blocked due to "/etc/passwd"
 			expectWarning: false,
-			description: "Output redirection to sensitive file should be blocked",
-			platform:    "all",
+			description:   "Output redirection to sensitive file should be blocked",
+			platform:      "all",
 		},
 		{
-			name:        "input redirection",
-			args:        []string{"command", "arg < input.txt"},
-			expectError: false,
+			name:          "input redirection",
+			args:          []string{"command", "arg < input.txt"},
+			expectError:   false,
 			expectWarning: false, // No dangerous patterns
-			description: "Input redirection should be safe for normal files",
-			platform:    "all",
+			description:   "Input redirection should be safe for normal files",
+			platform:      "all",
 		},
 		{
-			name:        "input redirection sensitive file",
-			args:        []string{"command", "arg < /etc/passwd"},
-			expectError: true, // This will be blocked due to "/etc/passwd"
+			name:          "input redirection sensitive file",
+			args:          []string{"command", "arg < /etc/passwd"},
+			expectError:   true, // This will be blocked due to "/etc/passwd"
 			expectWarning: false,
-			description: "Input redirection from sensitive file should be blocked",
-			platform:    "all",
+			description:   "Input redirection from sensitive file should be blocked",
+			platform:      "all",
 		},
 		{
-			name:        "glob patterns asterisk",
-			args:        []string{"command", "*.txt"},
-			expectError: false,
+			name:          "glob patterns asterisk",
+			args:          []string{"command", "*.txt"},
+			expectError:   false,
 			expectWarning: true,
-			description: "Wildcard patterns should trigger warning",
-			platform:    "all",
+			description:   "Wildcard patterns should trigger warning",
+			platform:      "all",
 		},
 		{
-			name:        "glob patterns question mark",
-			args:        []string{"command", "file?.txt"},
-			expectError: false,
+			name:          "glob patterns question mark",
+			args:          []string{"command", "file?.txt"},
+			expectError:   false,
 			expectWarning: true,
-			description: "Question mark glob should trigger warning",
-			platform:    "all",
+			description:   "Question mark glob should trigger warning",
+			platform:      "all",
 		},
 		{
-			name:        "glob patterns brackets",
-			args:        []string{"command", "file[0-9].txt"},
-			expectError: false,
+			name:          "glob patterns brackets",
+			args:          []string{"command", "file[0-9].txt"},
+			expectError:   false,
 			expectWarning: true,
-			description: "Bracket glob patterns should trigger warning",
-			platform:    "all",
+			description:   "Bracket glob patterns should trigger warning",
+			platform:      "all",
 		},
 		{
-			name:        "glob patterns braces",
-			args:        []string{"command", "file{1,2,3}.txt"},
-			expectError: false,
+			name:          "glob patterns braces",
+			args:          []string{"command", "file{1,2,3}.txt"},
+			expectError:   false,
 			expectWarning: true,
-			description: "Brace expansion should trigger warning",
-			platform:    "all",
+			description:   "Brace expansion should trigger warning",
+			platform:      "all",
 		},
-		
+
 		// Dangerous command patterns (should be blocked)
 		{
-			name:        "rm -rf command",
-			args:        []string{"rm -rf", "/important/data"},
-			expectError: true,
+			name:          "rm -rf command",
+			args:          []string{"rm -rf", "/important/data"},
+			expectError:   true,
 			expectWarning: false,
-			description: "Dangerous rm command should be blocked",
-			platform:    "all",
+			description:   "Dangerous rm command should be blocked",
+			platform:      "all",
 		},
 		{
-			name:        "sudo elevation",
-			args:        []string{"sudo", "dangerous_command"},
-			expectError: true,
+			name:          "sudo elevation",
+			args:          []string{"sudo", "dangerous_command"},
+			expectError:   true,
 			expectWarning: false,
-			description: "Sudo commands should be blocked",
-			platform:    "all",
+			description:   "Sudo commands should be blocked",
+			platform:      "all",
 		},
 		{
-			name:        "passwd file access",
-			args:        []string{"cat", "/etc/passwd"},
-			expectError: true,
+			name:          "passwd file access",
+			args:          []string{"cat", "/etc/passwd"},
+			expectError:   true,
 			expectWarning: false,
-			description: "Access to sensitive system files should be blocked",
-			platform:    "all",
+			description:   "Access to sensitive system files should be blocked",
+			platform:      "all",
 		},
 		{
-			name:        "path traversal attack",
-			args:        []string{"cat", "../../../etc/passwd"},
-			expectError: true,
+			name:          "path traversal attack",
+			args:          []string{"cat", "../../../etc/passwd"},
+			expectError:   true,
 			expectWarning: false,
-			description: "Path traversal attempts should be blocked",
-			platform:    "all",
+			description:   "Path traversal attempts should be blocked",
+			platform:      "all",
 		},
 		{
-			name:        "shadow file access",
-			args:        []string{"read", "/etc/shadow"},
-			expectError: false, // Current implementation doesn't block /etc/shadow specifically
+			name:          "shadow file access",
+			args:          []string{"read", "/etc/shadow"},
+			expectError:   false, // Current implementation doesn't block /etc/shadow specifically
 			expectWarning: false,
-			description: "Shadow file access - not currently blocked by implementation",
-			platform:    "all",
+			description:   "Shadow file access - not currently blocked by implementation",
+			platform:      "all",
 		},
-		
+
 		// Platform-specific threats
 		{
-			name:        "windows environment variable expansion",
-			args:        []string{"echo", "%PATH%"},
-			expectError: false,
+			name:          "windows environment variable expansion",
+			args:          []string{"echo", "%PATH%"},
+			expectError:   false,
 			expectWarning: true,
-			description: "Windows environment variable expansion should trigger warning",
-			platform:    "windows",
+			description:   "Windows environment variable expansion should trigger warning",
+			platform:      "windows",
 		},
 		{
-			name:        "unix environment variable expansion",
-			args:        []string{"echo", "$PATH"},
-			expectError: false,
+			name:          "unix environment variable expansion",
+			args:          []string{"echo", "$PATH"},
+			expectError:   false,
 			expectWarning: true,
-			description: "Unix environment variable expansion should trigger warning",
-			platform:    "unix",
+			description:   "Unix environment variable expansion should trigger warning",
+			platform:      "unix",
 		},
 		{
-			name:        "windows command separator",
-			args:        []string{"dir", "& del /Q *"},
-			expectError: false,
+			name:          "windows command separator",
+			args:          []string{"dir", "& del /Q *"},
+			expectError:   false,
 			expectWarning: true,
-			description: "Windows command separator should trigger warning",
-			platform:    "windows",
+			description:   "Windows command separator should trigger warning",
+			platform:      "windows",
 		},
-		
+
 		// Terminal escape sequence injection
 		{
-			name:        "ansi escape sequences",
-			args:        []string{"echo", "\x1b[31mRed text\x1b[0m"},
-			expectError: false,
+			name:          "ansi escape sequences",
+			args:          []string{"echo", "\x1b[31mRed text\x1b[0m"},
+			expectError:   false,
 			expectWarning: true,
-			description: "ANSI escape sequences should trigger warning",
-			platform:    "all",
+			description:   "ANSI escape sequences should trigger warning",
+			platform:      "all",
 		},
 		{
-			name:        "terminal title manipulation",
-			args:        []string{"echo", "\x1b]0;Fake Title\x07"},
-			expectError: false,
+			name:          "terminal title manipulation",
+			args:          []string{"echo", "\x1b]0;Fake Title\x07"},
+			expectError:   false,
 			expectWarning: true,
-			description: "Terminal title escape sequences should trigger warning",
-			platform:    "all",
+			description:   "Terminal title escape sequences should trigger warning",
+			platform:      "all",
 		},
-		
+
 		// Unicode and encoding attacks
 		{
-			name:        "unicode right-to-left override",
-			args:        []string{"echo", "file\u202Eexe.txt"},
-			expectError: false,
+			name:          "unicode right-to-left override",
+			args:          []string{"echo", "file\u202Eexe.txt"},
+			expectError:   false,
 			expectWarning: true,
-			description: "Unicode direction override should trigger warning",
-			platform:    "all",
+			description:   "Unicode direction override should trigger warning",
+			platform:      "all",
 		},
 		{
-			name:        "null byte injection",
-			args:        []string{"echo", "safe\x00dangerous"},
-			expectError: false,
+			name:          "null byte injection",
+			args:          []string{"echo", "safe\x00dangerous"},
+			expectError:   false,
 			expectWarning: true,
-			description: "Null byte injection should trigger warning",
-			platform:    "all",
+			description:   "Null byte injection should trigger warning",
+			platform:      "all",
 		},
-		
+
 		// Complex injection patterns
 		{
-			name:        "nested command substitution",
-			args:        []string{"echo", "$(echo `whoami`)"},
-			expectError: false,
+			name:          "nested command substitution",
+			args:          []string{"echo", "$(echo `whoami`)"},
+			expectError:   false,
 			expectWarning: true,
-			description: "Nested command substitution should trigger warning",
-			platform:    "all",
+			description:   "Nested command substitution should trigger warning",
+			platform:      "all",
 		},
 		{
-			name:        "multiple metacharacters",
-			args:        []string{"echo", "test; cat /etc/passwd | grep root > /tmp/hacked"},
-			expectError: true,
+			name:          "multiple metacharacters",
+			args:          []string{"echo", "test; cat /etc/passwd | grep root > /tmp/hacked"},
+			expectError:   true,
 			expectWarning: false,
-			description: "Multiple dangerous patterns should be blocked",
-			platform:    "all",
+			description:   "Multiple dangerous patterns should be blocked",
+			platform:      "all",
 		},
-		
+
 		// Edge cases and false positives
 		{
-			name:        "safe quoted semicolon",
-			args:        []string{"echo", "normal text with semicolon;"},
-			expectError: false,
+			name:          "safe quoted semicolon",
+			args:          []string{"echo", "normal text with semicolon;"},
+			expectError:   false,
 			expectWarning: true,
-			description: "Even safe semicolons should trigger warning",
-			platform:    "all",
+			description:   "Even safe semicolons should trigger warning",
+			platform:      "all",
 		},
 		{
-			name:        "url with query parameters",
-			args:        []string{"curl", "https://api.example.com/data?param1=value&param2=value"},
-			expectError: false,
+			name:          "url with query parameters",
+			args:          []string{"curl", "https://api.example.com/data?param1=value&param2=value"},
+			expectError:   false,
 			expectWarning: true,
-			description: "URL query parameters with & should trigger warning",
-			platform:    "all",
+			description:   "URL query parameters with & should trigger warning",
+			platform:      "all",
 		},
 		{
-			name:        "programming syntax",
-			args:        []string{"code", "--command", "echo 'Hello, World!'"},
-			expectError: false,
+			name:          "programming syntax",
+			args:          []string{"code", "--command", "echo 'Hello, World!'"},
+			expectError:   false,
 			expectWarning: false,
-			description: "Programming syntax in strings should be allowed",
-			platform:    "all",
+			description:   "Programming syntax in strings should be allowed",
+			platform:      "all",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Skip platform-specific tests if not on target platform
@@ -323,17 +323,17 @@ func TestShellSafetyValidation(t *testing.T) {
 					return
 				}
 			}
-			
+
 			err := validatePassthroughArgs(tt.args)
-			
+
 			if tt.expectError && err == nil {
 				t.Errorf("Expected error for %s, but got none. Description: %s", tt.name, tt.description)
 			}
-			
+
 			if !tt.expectError && err != nil {
 				t.Errorf("Unexpected error for %s: %v. Description: %s", tt.name, err, tt.description)
 			}
-			
+
 			// Note: Testing warnings would require capturing stderr, which is complex.
 			// The expectWarning field documents expected behavior for manual verification.
 		})
@@ -343,12 +343,12 @@ func TestShellSafetyValidation(t *testing.T) {
 // TestArgumentSanitization tests comprehensive argument sanitization while preserving semantic intent
 func TestArgumentSanitization(t *testing.T) {
 	tests := []struct {
-		name             string
-		input            []string
-		expectedOutput   []string
-		shouldSanitize   bool
-		preserveIntent   bool
-		description      string
+		name           string
+		input          []string
+		expectedOutput []string
+		shouldSanitize bool
+		preserveIntent bool
+		description    string
 	}{
 		{
 			name:           "normal arguments unchanged",
@@ -447,25 +447,25 @@ func TestArgumentSanitization(t *testing.T) {
 			description:    "Very long arguments should be handled efficiently",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// For now, we're testing that the input validation doesn't break the semantic intent
 			// In a full implementation, this would test an actual sanitization function
-			
+
 			// Test that validation doesn't break legitimate inputs
 			err := validatePassthroughArgs(tt.input)
-			
+
 			// These should all pass validation (though some might generate warnings)
 			if err != nil && tt.preserveIntent {
 				t.Errorf("Validation failed for legitimate input %s: %v", tt.name, err)
 			}
-			
+
 			// Verify the semantic intent is preserved by checking argument structure
 			if len(tt.input) != len(tt.expectedOutput) {
 				t.Errorf("Argument count changed: got %d, want %d", len(tt.input), len(tt.expectedOutput))
 			}
-			
+
 			// Check that important content is preserved (simplified check)
 			for i, expected := range tt.expectedOutput {
 				if i < len(tt.input) && tt.input[i] != expected {
@@ -511,7 +511,7 @@ func TestPlatformSpecificSecurity(t *testing.T) {
 			expectError: false,
 			description: "Windows command chaining with &",
 		},
-		
+
 		// Unix-specific tests
 		{
 			name:        "unix env var expansion",
@@ -537,7 +537,7 @@ func TestPlatformSpecificSecurity(t *testing.T) {
 			expectError: false,
 			description: "Unix shell globbing patterns",
 		},
-		
+
 		// Cross-platform tests
 		{
 			name:        "unicode filename",
@@ -556,7 +556,7 @@ func TestPlatformSpecificSecurity(t *testing.T) {
 			description: "International character paths",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Skip platform-specific tests
@@ -569,13 +569,13 @@ func TestPlatformSpecificSecurity(t *testing.T) {
 				t.Skipf("Skipping Unix test on %s", currentPlatform)
 				return
 			}
-			
+
 			err := validatePassthroughArgs(tt.args)
-			
+
 			if tt.expectError && err == nil {
 				t.Errorf("Expected error for %s but got none", tt.description)
 			}
-			
+
 			if !tt.expectError && err != nil {
 				t.Errorf("Unexpected error for %s: %v", tt.description, err)
 			}
@@ -640,15 +640,15 @@ func TestAdvancedSecurityScenarios(t *testing.T) {
 			description: "Path traversal attempt in file parameter",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validatePassthroughArgs(tt.args)
-			
+
 			if tt.expectError && err == nil {
 				t.Errorf("Expected error for %s but got none", tt.description)
 			}
-			
+
 			if !tt.expectError && err != nil {
 				t.Errorf("Unexpected error for %s: %v", tt.description, err)
 			}
@@ -762,36 +762,36 @@ func TestSecurityAndPermissions(t *testing.T) {
 			expected bool // true if should be valid
 		}{
 			// Name validation edge cases
-			{"name", "", false},                                    // empty
-			{"name", "a", true},                                    // single char
-			{"name", strings.Repeat("a", 50), true},               // max length
-			{"name", strings.Repeat("a", 51), false},              // over limit
-			{"name", "test name", false},                          // space
-			{"name", "test@name", false},                          // special char
-			{"name", "test\nname", false},                         // newline
-			{"name", "test\x00name", false},                       // null byte
-			{"name", "../../../etc/passwd", false},                // path traversal attempt
-			{"name", "<script>alert('xss')</script>", false},      // XSS attempt
+			{"name", "", false},                              // empty
+			{"name", "a", true},                              // single char
+			{"name", strings.Repeat("a", 50), true},          // max length
+			{"name", strings.Repeat("a", 51), false},         // over limit
+			{"name", "test name", false},                     // space
+			{"name", "test@name", false},                     // special char
+			{"name", "test\nname", false},                    // newline
+			{"name", "test\x00name", false},                  // null byte
+			{"name", "../../../etc/passwd", false},           // path traversal attempt
+			{"name", "<script>alert('xss')</script>", false}, // XSS attempt
 
 			// URL validation edge cases
-			{"url", "", false},                                     // empty
-			{"url", "http://a", true},                             // minimal valid
-			{"url", "https://a", true},                            // minimal valid HTTPS
-			{"url", "ftp://example.com", false},                   // wrong scheme
-			{"url", "javascript:alert('xss')", false},             // malicious scheme
-			{"url", "http://", false},                             // no host
-			{"url", "http:///path", false},                        // empty host
-			{"url", "http://[::1]:8080", true},                    // IPv6
-			{"url", "http://192.168.1.1:8080", true},              // IPv4
+			{"url", "", false},                                         // empty
+			{"url", "http://a", true},                                  // minimal valid
+			{"url", "https://a", true},                                 // minimal valid HTTPS
+			{"url", "ftp://example.com", false},                        // wrong scheme
+			{"url", "javascript:alert('xss')", false},                  // malicious scheme
+			{"url", "http://", false},                                  // no host
+			{"url", "http:///path", false},                             // empty host
+			{"url", "http://[::1]:8080", true},                         // IPv6
+			{"url", "http://192.168.1.1:8080", true},                   // IPv4
 			{"url", "https://api.anthropic.com:443/v1/messages", true}, // complex URL
 
 			// API key validation edge cases
-			{"apikey", "", false},                                          // empty
-			{"apikey", "short", false},                                     // too short
-			{"apikey", strings.Repeat("a", 201), false},                   // too long
-			{"apikey", "sk-ant-1234567890", true},                         // minimal valid
-			{"apikey", "test-ant-1234567890", true},                       // contains ant
-			{"apikey", "no-anthropic-here-1234567890", false},             // missing ant
+			{"apikey", "", false},                                        // empty
+			{"apikey", "short", false},                                   // too short
+			{"apikey", strings.Repeat("a", 201), false},                  // too long
+			{"apikey", "sk-ant-1234567890", true},                        // minimal valid
+			{"apikey", "test-ant-1234567890", true},                      // contains ant
+			{"apikey", "no-anthropic-here-1234567890", false},            // missing ant
 			{"apikey", "sk-ant-api03-" + strings.Repeat("a", 100), true}, // long but valid
 		}
 

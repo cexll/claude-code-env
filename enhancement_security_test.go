@@ -26,9 +26,9 @@ func TestSecurityEnhancements(t *testing.T) {
 
 		baseErr := fmt.Errorf("operation failed")
 		formattedErr := errorCtx.formatError(baseErr)
-		
+
 		errMsg := formattedErr.Error()
-		
+
 		// Verify API key is not exposed
 		if strings.Contains(errMsg, env.APIKey) {
 			t.Error("API key should not be exposed in error messages")
@@ -40,7 +40,7 @@ func TestSecurityEnhancements(t *testing.T) {
 
 	t.Run("model validation security", func(t *testing.T) {
 		mv := newModelValidator()
-		
+
 		// Test potential injection patterns
 		maliciousPatterns := []string{
 			"$(rm -rf /)",
@@ -88,7 +88,7 @@ func TestSecurityEnhancements(t *testing.T) {
 		}
 
 		if dirInfo.Mode().Perm() != 0700 {
-			t.Errorf("Config directory should have 0700 permissions, got %v", 
+			t.Errorf("Config directory should have 0700 permissions, got %v",
 				dirInfo.Mode().Perm())
 		}
 	})
@@ -210,10 +210,10 @@ func TestInputValidationSecurity(t *testing.T) {
 
 	t.Run("API key format validation", func(t *testing.T) {
 		maliciousKeys := []string{
-			"",                    // Empty
-			"short",               // Too short
-			"sk-ant-\x00hidden",   // Null byte
-			"sk-ant-\r\nhidden",   // Newline injection
+			"",                         // Empty
+			"short",                    // Too short
+			"sk-ant-\x00hidden",        // Null byte
+			"sk-ant-\r\nhidden",        // Newline injection
 			strings.Repeat("a", 10000), // Excessive length
 		}
 
@@ -250,26 +250,26 @@ func TestTimingAttackResistance(t *testing.T) {
 	t.Run("API key validation timing", func(t *testing.T) {
 		validKey := "sk-ant-api03-valid123456789abcdef"
 		invalidKey := "sk-ant-api03-invalid123456789abcd"
-		
+
 		// Measure timing for valid and invalid keys
 		iterations := 100
-		
+
 		start := time.Now()
 		for i := 0; i < iterations; i++ {
 			validateAPIKey(validKey)
 		}
 		validDuration := time.Since(start)
-		
+
 		start = time.Now()
 		for i := 0; i < iterations; i++ {
 			validateAPIKey(invalidKey)
 		}
 		invalidDuration := time.Since(start)
-		
+
 		// Timing should be relatively similar (within 2x)
 		ratio := float64(validDuration) / float64(invalidDuration)
 		if ratio > 2.0 || ratio < 0.5 {
-			t.Errorf("Timing difference too large: valid=%v, invalid=%v, ratio=%f", 
+			t.Errorf("Timing difference too large: valid=%v, invalid=%v, ratio=%f",
 				validDuration, invalidDuration, ratio)
 		}
 	})
@@ -277,26 +277,26 @@ func TestTimingAttackResistance(t *testing.T) {
 	t.Run("model validation timing", func(t *testing.T) {
 		validModel := "claude-3-5-sonnet-20241022"
 		invalidModel := "invalid-model-name-here"
-		
+
 		mv := newModelValidator()
 		iterations := 100
-		
+
 		start := time.Now()
 		for i := 0; i < iterations; i++ {
 			mv.validateModelAdaptive(validModel)
 		}
 		validDuration := time.Since(start)
-		
+
 		start = time.Now()
 		for i := 0; i < iterations; i++ {
 			mv.validateModelAdaptive(invalidModel)
 		}
 		invalidDuration := time.Since(start)
-		
+
 		// Timing should be relatively similar
 		ratio := float64(validDuration) / float64(invalidDuration)
 		if ratio > 3.0 || ratio < 0.33 {
-			t.Logf("Model validation timing difference: valid=%v, invalid=%v, ratio=%f", 
+			t.Logf("Model validation timing difference: valid=%v, invalid=%v, ratio=%f",
 				validDuration, invalidDuration, ratio)
 			// This is more informational than a hard requirement
 		}
@@ -307,7 +307,7 @@ func TestTimingAttackResistance(t *testing.T) {
 func TestMemoryLeakPrevention(t *testing.T) {
 	t.Run("terminal state cleanup", func(t *testing.T) {
 		initialAllocs := testing.AllocsPerRun(1, func() {})
-		
+
 		// Create and cleanup many terminal states
 		allocsPerRun := testing.AllocsPerRun(100, func() {
 			ts := &terminalState{
@@ -317,7 +317,7 @@ func TestMemoryLeakPrevention(t *testing.T) {
 			}
 			ts.ensureRestore()
 		})
-		
+
 		// Should not significantly increase allocations
 		if allocsPerRun > initialAllocs+10 {
 			t.Errorf("Potential memory leak in terminal state: %f allocs per run", allocsPerRun)
@@ -326,7 +326,7 @@ func TestMemoryLeakPrevention(t *testing.T) {
 
 	t.Run("error context cleanup", func(t *testing.T) {
 		initialAllocs := testing.AllocsPerRun(1, func() {})
-		
+
 		// Create many error contexts
 		allocsPerRun := testing.AllocsPerRun(100, func() {
 			ec := newErrorContext("test", "component").
@@ -334,7 +334,7 @@ func TestMemoryLeakPrevention(t *testing.T) {
 				addSuggestion("suggestion")
 			_ = ec.formatError(fmt.Errorf("test error"))
 		})
-		
+
 		// Should not significantly increase allocations beyond expected
 		if allocsPerRun > initialAllocs+50 {
 			t.Errorf("Potential memory leak in error context: %f allocs per run", allocsPerRun)
@@ -343,13 +343,13 @@ func TestMemoryLeakPrevention(t *testing.T) {
 
 	t.Run("model validator cleanup", func(t *testing.T) {
 		initialAllocs := testing.AllocsPerRun(1, func() {})
-		
+
 		// Create many validators
 		allocsPerRun := testing.AllocsPerRun(100, func() {
 			mv := newModelValidator()
 			mv.validateModelAdaptive("claude-3-5-sonnet-20241022")
 		})
-		
+
 		// Should not significantly increase allocations
 		if allocsPerRun > initialAllocs+30 {
 			t.Errorf("Potential memory leak in model validator: %f allocs per run", allocsPerRun)
@@ -401,7 +401,7 @@ func TestSecureTemporaryFiles(t *testing.T) {
 		}
 
 		if info.Mode().Perm() != 0600 {
-			t.Errorf("Backup file should have 0600 permissions, got %v", 
+			t.Errorf("Backup file should have 0600 permissions, got %v",
 				info.Mode().Perm())
 		}
 
@@ -413,7 +413,7 @@ func TestSecureTemporaryFiles(t *testing.T) {
 		}
 
 		if dirInfo.Mode().Perm() != 0700 {
-			t.Errorf("Backup directory should have 0700 permissions, got %v", 
+			t.Errorf("Backup directory should have 0700 permissions, got %v",
 				dirInfo.Mode().Perm())
 		}
 	})
@@ -423,15 +423,15 @@ func TestSecureTemporaryFiles(t *testing.T) {
 func BenchmarkSecurityValidation(b *testing.B) {
 	b.Run("input_validation", func(b *testing.B) {
 		testInputs := []struct {
-			name     string
-			url      string
-			apiKey   string
-			model    string
+			name   string
+			url    string
+			apiKey string
+			model  string
 		}{
 			{"valid", "https://api.anthropic.com", "sk-ant-test123456789", "claude-3-5-sonnet-20241022"},
 			{"invalid", "invalid-url", "short", "invalid-model"},
 		}
-		
+
 		for _, input := range testInputs {
 			b.Run(input.name, func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
@@ -451,7 +451,7 @@ func BenchmarkSecurityValidation(b *testing.B) {
 			APIKey: "sk-ant-test123456789",
 			Model:  "claude-3-5-sonnet-20241022",
 		}
-		
+
 		for i := 0; i < b.N; i++ {
 			prepareEnvironment(env)
 		}

@@ -9,7 +9,7 @@ import (
 func TestModelValidatorCreation(t *testing.T) {
 	t.Run("newModelValidator default creation", func(t *testing.T) {
 		mv := newModelValidator()
-		
+
 		if mv == nil {
 			t.Fatal("Expected non-nil model validator")
 		}
@@ -43,11 +43,11 @@ func TestModelValidatorCreation(t *testing.T) {
 		os.Setenv("CCE_MODEL_STRICT", "false")
 
 		mv := newModelValidator()
-		
+
 		if mv.strictMode {
 			t.Error("Expected strict mode to be disabled")
 		}
-		
+
 		// Check that custom patterns were added
 		found := false
 		for _, pattern := range mv.patterns {
@@ -72,11 +72,11 @@ func TestModelValidatorCreation(t *testing.T) {
 		}
 
 		mv := newModelValidatorWithConfig(config)
-		
+
 		if mv.strictMode {
 			t.Error("Expected strict mode to be disabled from config")
 		}
-		
+
 		// Check that config patterns were added
 		found := false
 		for _, pattern := range mv.patterns {
@@ -104,26 +104,26 @@ func TestModelValidation(t *testing.T) {
 		{"claude-3-5-sonnet", "claude-3-5-sonnet-20241022", true, false, "current sonnet model"},
 		{"claude-3-haiku", "claude-3-haiku-20240307", true, false, "current haiku model"},
 		{"claude-3-opus", "claude-3-opus-20240229", true, false, "current opus model"},
-		
+
 		// Future model patterns
 		{"claude-sonnet-v4", "claude-sonnet-4-20250101", true, false, "future sonnet model"},
 		{"claude-opus-v4", "claude-opus-4-20250101", true, false, "future opus model"},
 		{"claude-haiku-v4", "claude-haiku-4-20250101", true, false, "future haiku model"},
-		
+
 		// Version-agnostic patterns
 		{"version-agnostic-sonnet", "claude-sonnet-20250615", true, false, "version-agnostic sonnet"},
 		{"version-agnostic-opus", "claude-opus-20250615", true, false, "version-agnostic opus"},
 		{"version-agnostic-haiku", "claude-haiku-20250615", true, false, "version-agnostic haiku"},
-		
+
 		// General future patterns
 		{"claude-4-variant", "claude-4-mega-20250101", true, false, "claude-4 variant"},
 		{"numbered-variant", "claude-5-ultra-20250101", true, false, "numbered variant"},
-		
+
 		// Invalid models - strict mode
 		{"invalid-prefix-strict", "gpt-4", true, true, "invalid prefix in strict mode"},
 		{"malformed-strict", "claude", true, true, "malformed model in strict mode"},
 		{"empty-strict", "", true, false, "empty model in strict mode (allowed)"},
-		
+
 		// Invalid models - permissive mode
 		{"claude-unknown-permissive", "claude-unknown-model", false, false, "unknown claude model in permissive mode"},
 		{"invalid-prefix-permissive", "gpt-4", false, true, "invalid prefix in permissive mode"},
@@ -135,9 +135,9 @@ func TestModelValidation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mv := newModelValidator()
 			mv.strictMode = tc.strictMode
-			
+
 			err := mv.validateModelAdaptive(tc.model)
-			
+
 			if tc.expectError && err == nil {
 				t.Errorf("Expected error for %s but got none", tc.description)
 			}
@@ -168,7 +168,7 @@ func TestPatternValidation(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := mv.validatePattern(tc.pattern)
-			
+
 			if tc.expectError && err == nil {
 				t.Errorf("Expected error for pattern '%s'", tc.pattern)
 			}
@@ -199,12 +199,12 @@ func TestModelValidationWithConfig(t *testing.T) {
 
 	t.Run("any models now accepted", func(t *testing.T) {
 		anyModels := []string{
-			"gpt-4",         // Now accepted - OpenAI model
-			"not-claude",    // Now accepted - custom model
-			"claude",        // Now accepted - simple name
-			"kimi",          // Now accepted - Kimi model
-			"deepseek",      // Now accepted - DeepSeek model
-			"glm-4",         // Now accepted - GLM model
+			"gpt-4",      // Now accepted - OpenAI model
+			"not-claude", // Now accepted - custom model
+			"claude",     // Now accepted - simple name
+			"kimi",       // Now accepted - Kimi model
+			"deepseek",   // Now accepted - DeepSeek model
+			"glm-4",      // Now accepted - GLM model
 		}
 
 		for _, model := range anyModels {
@@ -237,7 +237,7 @@ func TestValidationSettingsIntegration(t *testing.T) {
 		}
 
 		mv := newModelValidatorWithConfig(config)
-		
+
 		// Test that custom pattern allows the model
 		err := mv.validateModelAdaptive("custom-model-pattern")
 		if err != nil {
@@ -259,12 +259,12 @@ func TestValidationSettingsIntegration(t *testing.T) {
 		}
 
 		mv := newModelValidatorWithConfig(config)
-		
+
 		// Should use defaults
 		if !mv.strictMode {
 			t.Error("Expected default strict mode when no config provided")
 		}
-		
+
 		err := mv.validateModelAdaptive("claude-3-5-sonnet-20241022")
 		if err != nil {
 			t.Errorf("Default patterns should validate standard models: %v", err)
@@ -314,14 +314,14 @@ func TestEnvironmentValidationWithModel(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := validateEnvironment(tc.env)
-			
+
 			if tc.expectError && err == nil {
 				t.Error("Expected validation error")
 			}
 			if !tc.expectError && err != nil {
 				t.Errorf("Unexpected validation error: %v", err)
 			}
-			
+
 			// Note: Model validation is now disabled, so no model-specific errors expected
 		})
 	}
@@ -331,7 +331,7 @@ func TestEnvironmentValidationWithModel(t *testing.T) {
 func BenchmarkModelValidation(b *testing.B) {
 	mv := newModelValidator()
 	testModel := "claude-3-5-sonnet-20241022"
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		mv.validateModelAdaptive(testModel)
@@ -342,7 +342,7 @@ func BenchmarkModelValidation(b *testing.B) {
 func BenchmarkPatternCompilation(b *testing.B) {
 	mv := newModelValidator()
 	testPattern := `^claude-[0-9]+-[a-z]+-[0-9]{8}$`
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		mv.validatePattern(testPattern)

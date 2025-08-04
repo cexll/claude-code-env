@@ -212,14 +212,14 @@ func TestValidateEnvVarNames(t *testing.T) {
 
 	// Test invalid environment variable names
 	invalidNames := []string{
-		"",           // empty
-		"123VAR",     // starts with number
-		"VAR-NAME",   // contains dash
-		"VAR NAME",   // contains space
-		"VAR=VALUE",  // contains equals
-		"VAR@HOME",   // contains special character
-		"-VAR",       // starts with dash
-		"VAR.NAME",   // contains dot
+		"",          // empty
+		"123VAR",    // starts with number
+		"VAR-NAME",  // contains dash
+		"VAR NAME",  // contains space
+		"VAR=VALUE", // contains equals
+		"VAR@HOME",  // contains special character
+		"-VAR",      // starts with dash
+		"VAR.NAME",  // contains dot
 	}
 
 	for _, name := range invalidNames {
@@ -233,12 +233,12 @@ func TestCommonSystemVarDetection(t *testing.T) {
 	// Test detection of common system variables
 	commonVars := []string{
 		"PATH",
-		"HOME", 
+		"HOME",
 		"USER",
 		"SHELL",
 		"GOPATH",
 		"JAVA_HOME",
-		"path",      // lowercase should also be detected
+		"path", // lowercase should also be detected
 		"home",
 		"java_home",
 	}

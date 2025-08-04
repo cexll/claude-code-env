@@ -11,7 +11,7 @@ import (
 func TestErrorContextCreation(t *testing.T) {
 	t.Run("newErrorContext basic creation", func(t *testing.T) {
 		ec := newErrorContext("test operation", "test component")
-		
+
 		if ec.Operation != "test operation" {
 			t.Errorf("Expected operation 'test operation', got '%s'", ec.Operation)
 		}
@@ -47,11 +47,11 @@ func TestErrorContextCreation(t *testing.T) {
 	t.Run("error context with recovery function", func(t *testing.T) {
 		recoveryFunc := func() error { return nil }
 		ec := newErrorContext("test", "component").withRecovery(recoveryFunc)
-		
+
 		if ec.Recovery == nil {
 			t.Error("Expected recovery function to be set")
 		}
-		
+
 		// Test recovery function
 		err := ec.Recovery()
 		if err != nil {
@@ -65,9 +65,9 @@ func TestErrorFormatting(t *testing.T) {
 	t.Run("basic error formatting", func(t *testing.T) {
 		baseErr := fmt.Errorf("base error message")
 		ec := newErrorContext("test operation", "test component")
-		
+
 		formattedErr := ec.formatError(baseErr)
-		
+
 		errMsg := formattedErr.Error()
 		if !strings.Contains(errMsg, "test operation") {
 			t.Error("Formatted error should contain operation")
@@ -111,7 +111,7 @@ func TestErrorFormatting(t *testing.T) {
 	t.Run("error formatting without context or suggestions", func(t *testing.T) {
 		baseErr := fmt.Errorf("simple error")
 		ec := newErrorContext("simple operation", "simple component")
-		
+
 		formattedErr := ec.formatError(baseErr)
 		errMsg := formattedErr.Error()
 
@@ -144,7 +144,7 @@ func TestEnhancedErrorCategorization(t *testing.T) {
 			// Test the error categorization logic from main function
 			var expectedExitCode int
 			err := fmt.Errorf("%s", tc.errorMessage)
-			
+
 			switch {
 			case strings.Contains(err.Error(), "terminal"):
 				expectedExitCode = 4
@@ -177,7 +177,7 @@ func TestConfigurationRecovery(t *testing.T) {
 	t.Run("config backup creation", func(t *testing.T) {
 		configPath := tempDir + "/config.json"
 		testContent := []byte(`{"environments":[{"name":"test","url":"https://api.anthropic.com","api_key":"sk-test"}]}`)
-		
+
 		// Create test config file
 		err := os.WriteFile(configPath, testContent, 0600)
 		if err != nil {
@@ -186,14 +186,14 @@ func TestConfigurationRecovery(t *testing.T) {
 
 		backup := newConfigBackup(configPath)
 		backupPath, err := backup.createBackup()
-		
+
 		if err != nil {
 			t.Errorf("Backup creation failed: %v", err)
 		}
 		if backupPath == "" {
 			t.Error("Expected non-empty backup path")
 		}
-		
+
 		// Verify backup file exists and has correct permissions
 		if info, err := os.Stat(backupPath); err != nil {
 			t.Errorf("Backup file does not exist: %v", err)
@@ -235,7 +235,7 @@ func TestConfigurationRecovery(t *testing.T) {
 
 	t.Run("configuration repair", func(t *testing.T) {
 		configPath := tempDir + "/repair-test.json"
-		
+
 		// Create corrupted config
 		err := os.WriteFile(configPath, []byte(`{corrupted json`), 0600)
 		if err != nil {
@@ -261,17 +261,17 @@ func TestEnhancedLauncherErrors(t *testing.T) {
 		// This test requires claude not to be in PATH
 		originalPath := os.Getenv("PATH")
 		defer os.Setenv("PATH", originalPath)
-		
+
 		// Set empty PATH to simulate missing claude
 		os.Setenv("PATH", "")
-		
+
 		err := checkClaudeCodeExists()
 		if err == nil {
 			t.Skip("Claude Code found in PATH, skipping missing binary test")
 		}
 
 		errMsg := err.Error()
-		
+
 		// Check for enhanced error context
 		if !strings.Contains(errMsg, "Suggestions:") {
 			t.Error("Expected suggestions in error message")
@@ -314,7 +314,7 @@ func TestEnhancedLauncherErrors(t *testing.T) {
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				_, err := prepareEnvironment(tc.env)
-				
+
 				if tc.expectError && err == nil {
 					t.Error("Expected environment preparation error")
 				}
@@ -331,7 +331,7 @@ func TestEnhancedLauncherErrors(t *testing.T) {
 		os.Setenv("ANTHROPIC_BASE_URL", "existing-url")
 		os.Setenv("ANTHROPIC_MODEL", "existing-model")
 		os.Setenv("OTHER_VAR", "keep-this")
-		
+
 		defer func() {
 			os.Unsetenv("ANTHROPIC_API_KEY")
 			os.Unsetenv("ANTHROPIC_BASE_URL")
@@ -391,7 +391,7 @@ func TestEnhancedLauncherErrors(t *testing.T) {
 func TestRetryConfiguration(t *testing.T) {
 	t.Run("default retry config", func(t *testing.T) {
 		config := defaultRetryConfig()
-		
+
 		if config.maxRetries != 3 {
 			t.Errorf("Expected 3 max retries, got %d", config.maxRetries)
 		}
@@ -402,10 +402,10 @@ func TestRetryConfiguration(t *testing.T) {
 
 	t.Run("exponential backoff calculation", func(t *testing.T) {
 		config := defaultRetryConfig()
-		
+
 		testCases := []struct {
-			attempt      int
-			expectedMs   int64
+			attempt    int
+			expectedMs int64
 		}{
 			{0, 100},
 			{1, 200},
@@ -416,7 +416,7 @@ func TestRetryConfiguration(t *testing.T) {
 		for _, tc := range testCases {
 			delay := config.exponentialBackoff(tc.attempt)
 			if delay.Milliseconds() != tc.expectedMs {
-				t.Errorf("Attempt %d: expected %dms, got %dms", 
+				t.Errorf("Attempt %d: expected %dms, got %dms",
 					tc.attempt, tc.expectedMs, delay.Milliseconds())
 			}
 		}
@@ -430,9 +430,9 @@ func BenchmarkErrorFormatting(b *testing.B) {
 		addContext("key2", "value2").
 		addSuggestion("suggestion 1").
 		addSuggestion("suggestion 2")
-	
+
 	baseErr := fmt.Errorf("base error message")
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ec.formatError(baseErr)
@@ -447,7 +447,7 @@ func BenchmarkEnvironmentPreparation(b *testing.B) {
 		APIKey: "sk-ant-test123456789",
 		Model:  "claude-3-5-sonnet-20241022",
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		prepareEnvironment(env)

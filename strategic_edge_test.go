@@ -96,7 +96,7 @@ func TestCICDIntegration(t *testing.T) {
 		os.Setenv("CCE_MODEL_STRICT", "false")
 
 		validator := newModelValidator()
-		
+
 		// Should accept custom patterns
 		if err := validator.validateModelAdaptive("test-model-ci"); err != nil {
 			t.Errorf("Custom model pattern not accepted: %v", err)
@@ -115,9 +115,9 @@ func TestConcurrencyAndRaceConditions(t *testing.T) {
 		// Test concurrent terminal capability detection
 		concurrency := 50
 		iterations := 100
-		
+
 		errors := make(chan error, concurrency*iterations)
-		
+
 		for i := 0; i < concurrency; i++ {
 			go func() {
 				for j := 0; j < iterations; j++ {
@@ -378,7 +378,7 @@ func TestSecurityBoundaries(t *testing.T) {
 		for _, attempt := range injectionAttempts {
 			t.Run(attempt.name, func(t *testing.T) {
 				err := validatePassthroughArgs(attempt.args)
-				
+
 				if attempt.blocked && err == nil {
 					t.Error("Expected dangerous command to be blocked")
 				}
@@ -563,7 +563,7 @@ func TestErrorRecoveryRobustness(t *testing.T) {
 		enhancedErr := errorCtx.formatError(baseErr)
 
 		errStr := enhancedErr.Error()
-		
+
 		// Verify error context is included
 		if !strings.Contains(errStr, "test_operation") {
 			t.Error("Operation not included in error context")

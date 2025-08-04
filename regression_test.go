@@ -25,7 +25,7 @@ func TestRegressionScenarios(t *testing.T) {
 	t.Run("issue_config_corruption_on_interrupted_save", func(t *testing.T) {
 		// Previously: Interrupted saves could corrupt the main config file
 		// Fix: Atomic save using temp file + rename
-		
+
 		initialConfig := Config{
 			Environments: []Environment{
 				{
@@ -44,7 +44,7 @@ func TestRegressionScenarios(t *testing.T) {
 		// Verify atomic operation: temp file should not exist after save
 		configPath, _ := getConfigPath()
 		tempPath := configPath + ".tmp"
-		
+
 		if _, err := os.Stat(tempPath); !os.IsNotExist(err) {
 			t.Error("Temp file should not exist after successful save (atomic operation)")
 		}
@@ -87,7 +87,7 @@ func TestRegressionScenarios(t *testing.T) {
 		// Fix: Graceful error handling with descriptive messages
 
 		configPath, _ := getConfigPath()
-		
+
 		// Ensure directory exists
 		if err := ensureConfigDir(); err != nil {
 			t.Fatalf("ensureConfigDir() failed: %v", err)
@@ -144,7 +144,7 @@ func TestRegressionScenarios(t *testing.T) {
 		// Fix: Validation errors don't include the actual API key value
 
 		sensitiveAPIKey := "sk-ant-api03-supersensitive1234567890abcdef1234567890"
-		
+
 		// Test validation error doesn't expose API key
 		invalidEnv := Environment{
 			Name:   "test",
@@ -232,15 +232,15 @@ func TestRegressionScenarios(t *testing.T) {
 		// Fix: Strict validation of environment names
 
 		maliciousNames := []string{
-			"",                           // empty
-			"../../../etc/passwd",        // path traversal
-			"env; rm -rf /",             // command injection
-			"env\x00null",               // null byte
-			"env\nname",                 // newline
-			"env name",                  // space
-			"env@special",               // special characters
+			"",                              // empty
+			"../../../etc/passwd",           // path traversal
+			"env; rm -rf /",                 // command injection
+			"env\x00null",                   // null byte
+			"env\nname",                     // newline
+			"env name",                      // space
+			"env@special",                   // special characters
 			"<script>alert('xss')</script>", // XSS attempt
-			strings.Repeat("a", 100),    // too long
+			strings.Repeat("a", 100),        // too long
 		}
 
 		for i, maliciousName := range maliciousNames {
@@ -324,7 +324,7 @@ func TestRegressionScenarios(t *testing.T) {
 
 		// Test that checkClaudeCodeExists properly validates executables
 		err := checkClaudeCodeExists()
-		
+
 		// This will likely fail unless claude-code is actually installed
 		// But it should fail safely without executing anything malicious
 		if err != nil {

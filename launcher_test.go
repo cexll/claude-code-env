@@ -39,9 +39,9 @@ func TestPrepareEnvironment(t *testing.T) {
 			}
 		}
 		// Check that existing Anthropic variables are filtered out
-		if strings.HasPrefix(envVar, "ANTHROPIC") && 
-		   !strings.HasPrefix(envVar, "ANTHROPIC_BASE_URL=") && 
-		   !strings.HasPrefix(envVar, "ANTHROPIC_API_KEY=") {
+		if strings.HasPrefix(envVar, "ANTHROPIC") &&
+			!strings.HasPrefix(envVar, "ANTHROPIC_BASE_URL=") &&
+			!strings.HasPrefix(envVar, "ANTHROPIC_API_KEY=") {
 			foundOtherAnthropicVar = true
 		}
 	}
@@ -75,21 +75,21 @@ func TestCheckClaudeCodeExists(t *testing.T) {
 	// We'll test both scenarios
 
 	err := checkClaudeCodeExists()
-	
+
 	// If claude-code is not installed, we should get a specific error
 	if err != nil {
 		if !strings.Contains(err.Error(), "not found in PATH") {
 			t.Errorf("Expected PATH error, got: %v", err)
 		}
 	}
-	
+
 	// Test with definitely non-existent command by temporarily changing PATH
 	originalPath := os.Getenv("PATH")
 	defer os.Setenv("PATH", originalPath)
-	
+
 	// Set PATH to empty to ensure claude-code is not found
 	os.Setenv("PATH", "")
-	
+
 	err = checkClaudeCodeExists()
 	if err == nil {
 		t.Error("Expected error when claude-code is not in PATH")
@@ -99,7 +99,7 @@ func TestCheckClaudeCodeExists(t *testing.T) {
 	}
 }
 
-// Mock launcher tests would require more complex setup, 
+// Mock launcher tests would require more complex setup,
 // but we can test the error paths and validation logic
 
 func TestLaunchClaudeCodeValidation(t *testing.T) {

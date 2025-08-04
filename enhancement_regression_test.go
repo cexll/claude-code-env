@@ -9,7 +9,7 @@ import (
 func TestEnhancementRegressionPrevention(t *testing.T) {
 	t.Run("terminal capabilities structure completeness", func(t *testing.T) {
 		caps := detectTerminalCapabilities()
-		
+
 		// Ensure all fields are populated
 		if caps.Width == 0 {
 			t.Error("Width should be set to a default value")
@@ -19,7 +19,7 @@ func TestEnhancementRegressionPrevention(t *testing.T) {
 		}
 		// IsTerminal, SupportsRaw, SupportsANSI, SupportsCursor can be false
 		// but they should be deterministic for a given environment
-		
+
 		// Run again to ensure consistency
 		caps2 := detectTerminalCapabilities()
 		if caps.IsTerminal != caps2.IsTerminal {
@@ -29,18 +29,18 @@ func TestEnhancementRegressionPrevention(t *testing.T) {
 
 	t.Run("model validator default patterns exist", func(t *testing.T) {
 		mv := newModelValidator()
-		
+
 		if len(mv.patterns) == 0 {
 			t.Error("Model validator should have default patterns")
 		}
-		
+
 		// Verify some essential patterns exist
 		essentialPatterns := []string{
 			"claude-3-5-sonnet-20241022",
 			"claude-3-haiku-20240307",
 			"claude-3-opus-20240229",
 		}
-		
+
 		for _, model := range essentialPatterns {
 			err := mv.validateModelAdaptive(model)
 			if err != nil {
@@ -52,14 +52,14 @@ func TestEnhancementRegressionPrevention(t *testing.T) {
 	t.Run("error context maintains KISS principles", func(t *testing.T) {
 		// Error context should be simple and not overly complex
 		ec := newErrorContext("simple", "test")
-		
+
 		if ec.Operation != "simple" || ec.Component != "test" {
 			t.Error("Error context should maintain simple field access")
 		}
-		
+
 		// Should support method chaining without complexity
 		ec = ec.addContext("key", "value").addSuggestion("suggestion")
-		
+
 		if len(ec.Context) != 1 || len(ec.Suggestions) != 1 {
 			t.Error("Error context chaining should work simply")
 		}
@@ -73,23 +73,23 @@ func TestEnhancementRegressionPrevention(t *testing.T) {
 			APIKey: "sk-ant-basic123456789",
 			// No Model specified - should work fine
 		}
-		
+
 		err := validateEnvironment(env)
 		if err != nil {
 			t.Errorf("Basic environment without model should still validate: %v", err)
 		}
-		
+
 		// Environment variable preparation should work
 		envVars, err := prepareEnvironment(env)
 		if err != nil {
 			t.Errorf("Basic environment preparation should work: %v", err)
 		}
-		
+
 		// Should have base URL and API key but no model
 		hasBaseURL := false
 		hasAPIKey := false
 		hasModel := false
-		
+
 		for _, envVar := range envVars {
 			if envVar == "ANTHROPIC_BASE_URL="+env.URL {
 				hasBaseURL = true
@@ -101,7 +101,7 @@ func TestEnhancementRegressionPrevention(t *testing.T) {
 				hasModel = true
 			}
 		}
-		
+
 		if !hasBaseURL {
 			t.Error("Should have base URL")
 		}
@@ -134,7 +134,7 @@ func TestEnhancementPerformanceRegression(t *testing.T) {
 	t.Run("model validation performance", func(t *testing.T) {
 		mv := newModelValidator()
 		testModel := "claude-3-5-sonnet-20241022"
-		
+
 		// Should validate quickly
 		for i := 0; i < 100; i++ {
 			err := mv.validateModelAdaptive(testModel)
@@ -151,7 +151,7 @@ func TestEnhancementPerformanceRegression(t *testing.T) {
 			ec := newErrorContext("test", "component").
 				addContext("key", "value").
 				addSuggestion("suggestion")
-			
+
 			err := ec.formatError(fmt.Errorf("test error"))
 			if err == nil {
 				t.Error("Error formatting failed")
@@ -165,17 +165,17 @@ func TestEnhancementPerformanceRegression(t *testing.T) {
 func TestEnhancementStability(t *testing.T) {
 	t.Run("nil pointer safety", func(t *testing.T) {
 		// Test various nil conditions that shouldn't panic
-		
+
 		defer func() {
 			if r := recover(); r != nil {
 				t.Errorf("Code should handle nil gracefully: %v", r)
 			}
 		}()
-		
+
 		// Terminal state with nil oldState
 		ts := &terminalState{fd: -1, oldState: nil}
 		ts.ensureRestore()
-		
+
 		// Error context with nil recovery
 		ec := newErrorContext("test", "component")
 		ec.Recovery = nil
@@ -184,19 +184,19 @@ func TestEnhancementStability(t *testing.T) {
 
 	t.Run("empty input handling", func(t *testing.T) {
 		// Test empty inputs don't cause issues
-		
+
 		defer func() {
 			if r := recover(); r != nil {
 				t.Errorf("Empty inputs should be handled gracefully: %v", r)
 			}
 		}()
-		
+
 		// Empty key parsing
 		_, _, err := parseKeyInput([]byte{})
 		if err == nil {
 			t.Error("Empty input should return error")
 		}
-		
+
 		// Empty model validation
 		mv := newModelValidator()
 		err = mv.validateModelAdaptive("")
@@ -208,7 +208,7 @@ func TestEnhancementStability(t *testing.T) {
 	t.Run("concurrent access safety", func(t *testing.T) {
 		// Test that multiple goroutines can safely use the enhancements
 		done := make(chan bool, 3)
-		
+
 		// Multiple terminal detections
 		go func() {
 			for i := 0; i < 10; i++ {
@@ -216,7 +216,7 @@ func TestEnhancementStability(t *testing.T) {
 			}
 			done <- true
 		}()
-		
+
 		// Multiple model validations
 		go func() {
 			mv := newModelValidator()
@@ -225,7 +225,7 @@ func TestEnhancementStability(t *testing.T) {
 			}
 			done <- true
 		}()
-		
+
 		// Multiple error contexts
 		go func() {
 			for i := 0; i < 10; i++ {
@@ -234,7 +234,7 @@ func TestEnhancementStability(t *testing.T) {
 			}
 			done <- true
 		}()
-		
+
 		// Wait for all goroutines
 		for i := 0; i < 3; i++ {
 			<-done
@@ -251,19 +251,19 @@ func TestEnhancementIntegrationConsistency(t *testing.T) {
 			APIKey: "sk-ant-integration123456789",
 			Model:  "claude-3-5-sonnet-20241022",
 		}
-		
+
 		// Should validate completely
 		err := validateEnvironment(env)
 		if err != nil {
 			t.Errorf("Complete environment should validate: %v", err)
 		}
-		
+
 		// Should prepare environment variables correctly
 		envVars, err := prepareEnvironment(env)
 		if err != nil {
 			t.Errorf("Environment preparation should succeed: %v", err)
 		}
-		
+
 		// Should include model variable
 		hasModel := false
 		for _, envVar := range envVars {
@@ -272,7 +272,7 @@ func TestEnhancementIntegrationConsistency(t *testing.T) {
 				break
 			}
 		}
-		
+
 		if !hasModel {
 			t.Error("Environment variables should include model")
 		}
@@ -285,7 +285,7 @@ func TestEnhancementIntegrationConsistency(t *testing.T) {
 				{Name: "test1", URL: "https://api.anthropic.com", APIKey: "sk-ant-test123456789"},
 			},
 		}
-		
+
 		// Single environment should always return that environment
 		env, err := selectEnvironmentWithArrows(config)
 		if err != nil {
@@ -306,13 +306,13 @@ func TestEnhancementIntegrationConsistency(t *testing.T) {
 				},
 			},
 		}
-		
+
 		mv := newModelValidatorWithConfig(config)
-		
+
 		if mv.strictMode {
 			t.Error("Config should override strict mode")
 		}
-		
+
 		// Custom pattern should work
 		err := mv.validateModelAdaptive("test-pattern-123")
 		if err != nil {

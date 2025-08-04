@@ -13,12 +13,12 @@ import (
 func TestCrossPlatformCompatibility(t *testing.T) {
 	t.Run("terminal detection across platforms", func(t *testing.T) {
 		caps := detectTerminalCapabilities()
-		
+
 		// Basic validation that should work on all platforms
 		if caps.Width <= 0 || caps.Height <= 0 {
 			t.Error("Terminal dimensions should be positive")
 		}
-		
+
 		// Platform-specific tests
 		switch runtime.GOOS {
 		case "windows":
@@ -65,13 +65,13 @@ func TestCrossPlatformCompatibility(t *testing.T) {
 	t.Run("signal handling preparation", func(t *testing.T) {
 		// Test that signal-related functionality doesn't panic
 		// This is preparation for interrupt handling during terminal operations
-		
+
 		defer func() {
 			if r := recover(); r != nil {
 				t.Errorf("Signal handling preparation panicked: %v", r)
 			}
 		}()
-		
+
 		// Basic syscall operations should work
 		fd := int(syscall.Stdin)
 		if fd < 0 {
@@ -114,12 +114,12 @@ func TestTerminalCompatibilityMatrix(t *testing.T) {
 			}
 
 			caps := detectTerminalCapabilities()
-			
+
 			if caps.SupportsANSI != tv.expectANSI {
-				t.Errorf("TERM=%s: expected ANSI support %v, got %v", 
+				t.Errorf("TERM=%s: expected ANSI support %v, got %v",
 					tv.term, tv.expectANSI, caps.SupportsANSI)
 			}
-			
+
 			// Cursor support should generally match ANSI support
 			if caps.SupportsCursor != caps.SupportsANSI {
 				t.Errorf("TERM=%s: cursor support (%v) should match ANSI support (%v)",
@@ -135,7 +135,7 @@ func TestSSHEnvironmentDetection(t *testing.T) {
 		// Save original SSH environment
 		originalSSH := os.Getenv("SSH_CONNECTION")
 		originalSSHTTY := os.Getenv("SSH_TTY")
-		
+
 		defer func() {
 			if originalSSH == "" {
 				os.Unsetenv("SSH_CONNECTION")
@@ -154,11 +154,11 @@ func TestSSHEnvironmentDetection(t *testing.T) {
 		os.Setenv("SSH_TTY", "/dev/pts/0")
 
 		caps := detectTerminalCapabilities()
-		
+
 		// SSH environments should still support basic terminal features
 		// but may have limitations
 		t.Logf("SSH simulation - Terminal capabilities: %+v", caps)
-		
+
 		// Basic dimensions should still be available
 		if caps.Width <= 0 || caps.Height <= 0 {
 			t.Error("SSH environment should still provide terminal dimensions")
@@ -169,10 +169,10 @@ func TestSSHEnvironmentDetection(t *testing.T) {
 // TestScreenTmuxEnvironments tests screen and tmux compatibility
 func TestScreenTmuxEnvironments(t *testing.T) {
 	environments := []struct {
-		name     string
-		termVar  string
-		sty      string
-		tmux     string
+		name    string
+		termVar string
+		sty     string
+		tmux    string
 	}{
 		{"screen", "screen", "12345.pts-0.hostname", ""},
 		{"screen-256color", "screen-256color", "12345.pts-0.hostname", ""},
@@ -183,7 +183,7 @@ func TestScreenTmuxEnvironments(t *testing.T) {
 	originalTerm := os.Getenv("TERM")
 	originalSTY := os.Getenv("STY")
 	originalTMUX := os.Getenv("TMUX")
-	
+
 	defer func() {
 		os.Setenv("TERM", originalTerm)
 		if originalSTY == "" {
@@ -201,13 +201,13 @@ func TestScreenTmuxEnvironments(t *testing.T) {
 	for _, env := range environments {
 		t.Run(env.name, func(t *testing.T) {
 			os.Setenv("TERM", env.termVar)
-			
+
 			if env.sty != "" {
 				os.Setenv("STY", env.sty)
 			} else {
 				os.Unsetenv("STY")
 			}
-			
+
 			if env.tmux != "" {
 				os.Setenv("TMUX", env.tmux)
 			} else {
@@ -215,12 +215,12 @@ func TestScreenTmuxEnvironments(t *testing.T) {
 			}
 
 			caps := detectTerminalCapabilities()
-			
+
 			// Screen and tmux should generally support ANSI
 			if !caps.SupportsANSI {
 				t.Errorf("%s should support ANSI sequences", env.name)
 			}
-			
+
 			// Should have reasonable dimensions
 			if caps.Width < 20 || caps.Height < 5 {
 				t.Errorf("%s dimensions too small: %dx%d", env.name, caps.Width, caps.Height)
@@ -232,8 +232,8 @@ func TestScreenTmuxEnvironments(t *testing.T) {
 // TestCIEnvironmentDetection tests CI/CD environment detection
 func TestCIEnvironmentDetection(t *testing.T) {
 	ciEnvironments := []struct {
-		name     string
-		envVars  map[string]string
+		name    string
+		envVars map[string]string
 	}{
 		{
 			"GitHub Actions",
@@ -259,7 +259,7 @@ func TestCIEnvironmentDetection(t *testing.T) {
 		{
 			"Generic CI",
 			map[string]string{
-				"CI":                    "true",
+				"CI":                     "true",
 				"CONTINUOUS_INTEGRATION": "true",
 			},
 		},
@@ -312,11 +312,11 @@ func TestPerformanceRequirements(t *testing.T) {
 
 		for i := 0; i < iterations; i++ {
 			start := time.Now()
-			
+
 			// Test the expensive operations that would happen during startup
 			_ = detectTerminalCapabilities()
 			_ = newModelValidator()
-			
+
 			duration := time.Since(start)
 			totalDuration += duration
 		}
@@ -325,7 +325,7 @@ func TestPerformanceRequirements(t *testing.T) {
 		maxAllowed := 100 * time.Millisecond
 
 		if averageDuration > maxAllowed {
-			t.Errorf("Average startup overhead %v exceeds limit of %v", 
+			t.Errorf("Average startup overhead %v exceeds limit of %v",
 				averageDuration, maxAllowed)
 		}
 
@@ -358,7 +358,7 @@ func TestPerformanceRequirements(t *testing.T) {
 		maxIncrease := uint64(4096) // 4KB as reasonable limit for enhancements
 
 		if memIncrease > maxIncrease {
-			t.Errorf("Memory increase %d bytes exceeds limit of %d bytes", 
+			t.Errorf("Memory increase %d bytes exceeds limit of %d bytes",
 				memIncrease, maxIncrease)
 		}
 
@@ -403,7 +403,7 @@ func TestErrorRecoveryIntegration(t *testing.T) {
 	t.Run("end-to-end error propagation", func(t *testing.T) {
 		// Test that errors propagate correctly through the system
 		// with enhanced error context
-		
+
 		testCases := []struct {
 			name     string
 			args     []string
@@ -455,7 +455,7 @@ func BenchmarkCrossPlatformOperations(b *testing.B) {
 			{'\n'},
 			{'a'},
 		}
-		
+
 		for i := 0; i < b.N; i++ {
 			for _, input := range inputs {
 				parseKeyInput(input)

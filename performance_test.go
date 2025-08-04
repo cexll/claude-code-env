@@ -80,9 +80,9 @@ func TestPerformanceAndBenchmarks(t *testing.T) {
 	t.Run("validation_performance", func(t *testing.T) {
 		// Test validation performance with various input sizes
 		testCases := []struct {
-			name       string
-			generator  func(size int) string
-			validator  func(string) error
+			name      string
+			generator func(size int) string
+			validator func(string) error
 		}{
 			{"name_validation", generateTestName, validateName},
 			{"url_validation", generateTestURL, validateURL},
@@ -167,7 +167,7 @@ func TestPerformanceAndBenchmarks(t *testing.T) {
 			if err != nil {
 				t.Fatalf("loadConfig() failed at iteration %d: %v", i, err)
 			}
-			
+
 			if err := saveConfig(loadedConfig); err != nil {
 				t.Fatalf("saveConfig() failed at iteration %d: %v", i, err)
 			}
@@ -322,7 +322,7 @@ func generateTestName(size int) string {
 	if size > 50 {
 		size = 50 // Respect validation limit
 	}
-	
+
 	name := "test"
 	for len(name) < size {
 		name += "_env"
@@ -335,7 +335,7 @@ func generateTestURL(size int) string {
 	if size <= len(base) {
 		return base[:max(size, 0)]
 	}
-	
+
 	url := base
 	for len(url) < size {
 		url += "/path"
@@ -348,7 +348,7 @@ func generateTestAPIKey(size int) string {
 	if size <= len(base) {
 		return base[:max(size, 0)]
 	}
-	
+
 	key := base
 	chars := "abcdef1234567890"
 	for len(key) < size {
