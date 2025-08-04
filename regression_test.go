@@ -86,6 +86,17 @@ func TestRegressionScenarios(t *testing.T) {
 		// Previously: Invalid JSON in config file would crash the application
 		// Fix: Graceful error handling with descriptive messages
 
+		// Disable auto-repair for this test to verify error handling
+		originalValue := os.Getenv("CCE_DISABLE_AUTO_REPAIR")
+		os.Setenv("CCE_DISABLE_AUTO_REPAIR", "true")
+		defer func() {
+			if originalValue == "" {
+				os.Unsetenv("CCE_DISABLE_AUTO_REPAIR")
+			} else {
+				os.Setenv("CCE_DISABLE_AUTO_REPAIR", originalValue)
+			}
+		}()
+
 		configPath, _ := getConfigPath()
 
 		// Ensure directory exists

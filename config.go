@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -68,6 +69,12 @@ func detectCorruption(configPath string) error {
 	var testConfig Config
 	if err := json.Unmarshal(data, &testConfig); err != nil {
 		return fmt.Errorf("configuration file contains invalid JSON: %w", err)
+	}
+
+	// Check for null JSON or other invalid structures
+	trimmed := strings.TrimSpace(string(data))
+	if trimmed == "null" {
+		return fmt.Errorf("configuration file contains null value")
 	}
 
 	return nil
@@ -209,6 +216,11 @@ func loadConfig() (Config, error) {
 
 	// Check for corruption before attempting to read
 	if err := detectCorruption(configPath); err != nil {
+		// Check if auto-repair is disabled (primarily for testing)
+		if os.Getenv("CCE_DISABLE_AUTO_REPAIR") == "true" {
+			return Config{}, fmt.Errorf("configuration file parsing failed: %w", err)
+		}
+
 		fmt.Printf("Configuration corruption detected: %v\n", err)
 		fmt.Println("Attempting automatic repair...")
 

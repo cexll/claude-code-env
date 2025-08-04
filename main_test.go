@@ -233,6 +233,17 @@ func TestConfigOperations(t *testing.T) {
 	t.Run("invalid JSON handling", func(t *testing.T) {
 		configPath, _ := getConfigPath()
 
+		// Disable auto-repair for this test
+		originalValue := os.Getenv("CCE_DISABLE_AUTO_REPAIR")
+		os.Setenv("CCE_DISABLE_AUTO_REPAIR", "true")
+		defer func() {
+			if originalValue == "" {
+				os.Unsetenv("CCE_DISABLE_AUTO_REPAIR")
+			} else {
+				os.Setenv("CCE_DISABLE_AUTO_REPAIR", originalValue)
+			}
+		}()
+
 		// Ensure directory exists
 		if err := ensureConfigDir(); err != nil {
 			t.Fatalf("ensureConfigDir() failed: %v", err)
