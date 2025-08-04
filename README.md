@@ -88,6 +88,7 @@ cce list
 #   Model: claude-3-5-sonnet-20241022
 #   Key:   sk-ant-************************************************************
 #   Env:   ANTHROPIC_SMALL_FAST_MODEL=claude-3-haiku-20240307
+#          CUSTOM_TIMEOUT=60s
 #
 #   Name:  staging
 #   URL:   https://staging.anthropic.com
@@ -191,7 +192,7 @@ Environments stored in `~/.claude-code-env/config.json`:
 CCE supports configuring additional environment variables for each environment. These variables are automatically set when launching Claude Code with the selected environment.
 
 **Common Use Cases:**
-- `ANTHROPIC_SMALL_FAST_MODEL`: Specify a faster model for certain operations (e.g., `claude-3-haiku-20240307`)
+- `ANTHROPIC_SMALL_FAST_MODEL`: Specify a faster model for quick operations like code completion (e.g., `claude-3-haiku-20240307`)
 - `ANTHROPIC_TIMEOUT`: Set custom timeout values for API requests (e.g., `30s`)
 - `ANTHROPIC_RETRY_COUNT`: Configure retry behavior for failed requests (e.g., `3`)
 - Any custom environment variables required by your Claude Code setup
