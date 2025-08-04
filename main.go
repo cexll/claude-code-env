@@ -86,10 +86,11 @@ func (mv *modelValidator) validatePattern(pattern string) error {
 
 // Environment represents a single Claude Code API configuration
 type Environment struct {
-	Name   string `json:"name"`
-	URL    string `json:"url"`
-	APIKey string `json:"api_key"`
-	Model  string `json:"model,omitempty"`
+	Name    string            `json:"name"`
+	URL     string            `json:"url"`
+	APIKey  string            `json:"api_key"`
+	Model   string            `json:"model,omitempty"`
+	EnvVars map[string]string `json:"env_vars,omitempty"`
 }
 
 // Config represents the complete configuration with all environments

@@ -631,7 +631,7 @@ func TestSelectEnvironment(t *testing.T) {
 		if err != nil {
 			t.Fatalf("selectEnvironment() with single env failed: %v", err)
 		}
-		if selected != env {
+		if !equalEnvironments(selected, env) {
 			t.Errorf("Selected environment mismatch: got %+v, want %+v", selected, env)
 		}
 	})

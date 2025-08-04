@@ -1098,6 +1098,52 @@ func promptForEnvironment(config Config) (Environment, error) {
 		break
 	}
 	
+	// Get additional environment variables (optional)
+	env.EnvVars = make(map[string]string)
+	if _, printErr := fmt.Println("Additional environment variables (optional):"); printErr != nil {
+		return Environment{}, fmt.Errorf("failed to display prompt: %w", printErr)
+	}
+	if _, printErr := fmt.Println("Examples: ANTHROPIC_SMALL_FAST_MODEL, ANTHROPIC_TIMEOUT, etc."); printErr != nil {
+		return Environment{}, fmt.Errorf("failed to display examples: %w", printErr)
+	}
+	if _, printErr := fmt.Println("Enter variable name (press Enter when done):"); printErr != nil {
+		return Environment{}, fmt.Errorf("failed to display prompt: %w", printErr)
+	}
+	
+	for {
+		var varName string
+		varName, err = regularInput("Variable name: ")
+		if err != nil {
+			return Environment{}, fmt.Errorf("failed to get variable name: %w", err)
+		}
+		
+		// If empty, we're done
+		if varName == "" {
+			break
+		}
+		
+		// Validate variable name (basic validation)
+		if len(varName) == 0 || strings.Contains(varName, "=") || strings.Contains(varName, " ") {
+			if _, printErr := fmt.Printf("Invalid variable name (no spaces or '=' allowed): %s\n", varName); printErr != nil {
+				return Environment{}, fmt.Errorf("failed to display error: %w", printErr)
+			}
+			continue
+		}
+		
+		// Get variable value
+		var varValue string
+		varValue, err = regularInput(fmt.Sprintf("Value for %s: ", varName))
+		if err != nil {
+			return Environment{}, fmt.Errorf("failed to get variable value: %w", err)
+		}
+		
+		// Store the variable
+		env.EnvVars[varName] = varValue
+		if _, printErr := fmt.Printf("Added %s=%s\n", varName, varValue); printErr != nil {
+			return Environment{}, fmt.Errorf("failed to display confirmation: %w", printErr)
+		}
+	}
+	
 	return env, nil
 }
 
@@ -1139,6 +1185,18 @@ func displayEnvironments(config Config) error {
 		}
 		if _, err := fmt.Printf("  Key:   %s\n", maskedKey); err != nil {
 			return fmt.Errorf("failed to display masked API key: %w", err)
+		}
+		
+		// Display additional environment variables if any
+		if len(env.EnvVars) > 0 {
+			if _, err := fmt.Printf("  Env Variables:\n"); err != nil {
+				return fmt.Errorf("failed to display env vars header: %w", err)
+			}
+			for key, value := range env.EnvVars {
+				if _, err := fmt.Printf("    %s=%s\n", key, value); err != nil {
+					return fmt.Errorf("failed to display env var: %w", err)
+				}
+			}
 		}
 		
 		// Show truncation warning if any fields were truncated

@@ -78,8 +78,9 @@ func prepareEnvironment(env Environment) ([]string, error) {
 	// Get current environment
 	currentEnv := os.Environ()
 
-	// Create new environment with Anthropic variables
-	newEnv := make([]string, 0, len(currentEnv)+3)
+	// Calculate capacity for new environment slice
+	envVarsCount := len(env.EnvVars)
+	newEnv := make([]string, 0, len(currentEnv)+3+envVarsCount)
 
 	// Copy existing environment variables (except Anthropic ones)
 	for _, envVar := range currentEnv {
@@ -96,6 +97,15 @@ func prepareEnvironment(env Environment) ([]string, error) {
 	// Add ANTHROPIC_MODEL if specified
 	if env.Model != "" {
 		newEnv = append(newEnv, fmt.Sprintf("ANTHROPIC_MODEL=%s", env.Model))
+	}
+
+	// Add additional environment variables
+	if env.EnvVars != nil {
+		for key, value := range env.EnvVars {
+			if key != "" && value != "" {
+				newEnv = append(newEnv, fmt.Sprintf("%s=%s", key, value))
+			}
+		}
 	}
 
 	return newEnv, nil

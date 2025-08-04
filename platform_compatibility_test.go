@@ -219,7 +219,7 @@ func TestPlatformCompatibility(t *testing.T) {
 			t.Fatalf("Failed to load config after save: %v", err)
 		}
 
-		if len(loadedConfig.Environments) != 1 || loadedConfig.Environments[0] != env {
+		if len(loadedConfig.Environments) != 1 || !equalEnvironments(loadedConfig.Environments[0], env) {
 			t.Error("Config was not preserved correctly across save/load")
 		}
 	})
@@ -272,7 +272,7 @@ func TestPlatformCompatibility(t *testing.T) {
 			t.Fatalf("Failed to load config with special characters: %v", err)
 		}
 
-		if len(loadedConfig.Environments) != 1 || loadedConfig.Environments[0] != validEnv {
+		if len(loadedConfig.Environments) != 1 || !equalEnvironments(loadedConfig.Environments[0], validEnv) {
 			t.Error("Config with special characters not preserved correctly")
 		}
 	})

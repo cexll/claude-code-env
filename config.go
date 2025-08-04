@@ -337,6 +337,27 @@ func findEnvironmentByName(config Config, name string) (int, bool) {
 	return -1, false
 }
 
+// equalEnvironments compares two environments for equality, including EnvVars maps
+func equalEnvironments(a, b Environment) bool {
+	if a.Name != b.Name || a.URL != b.URL || a.APIKey != b.APIKey || a.Model != b.Model {
+		return false
+	}
+	
+	// Compare EnvVars maps
+	if len(a.EnvVars) != len(b.EnvVars) {
+		return false
+	}
+	
+	for key, valueA := range a.EnvVars {
+		valueB, exists := b.EnvVars[key]
+		if !exists || valueA != valueB {
+			return false
+		}
+	}
+	
+	return true
+}
+
 // addEnvironmentToConfig adds a new environment to the configuration after validation
 func addEnvironmentToConfig(config *Config, env Environment) error {
 	// Validate environment first
