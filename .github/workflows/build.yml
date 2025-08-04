@@ -28,7 +28,7 @@ permissions:
 
 # Environment variables
 env:
-  GO_VERSION: '1.24.5'
+  GO_VERSION: '1.23'
 
 defaults:
   run:
