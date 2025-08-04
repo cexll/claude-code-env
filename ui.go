@@ -1098,6 +1098,59 @@ func promptForEnvironment(config Config) (Environment, error) {
 		break
 	}
 	
+	// Get additional environment variables (optional)
+	env.EnvVars = make(map[string]string)
+	if _, printErr := fmt.Println("Additional environment variables (optional):"); printErr != nil {
+		return Environment{}, fmt.Errorf("failed to display prompt: %w", printErr)
+	}
+	if _, printErr := fmt.Println("Examples: ANTHROPIC_SMALL_FAST_MODEL, ANTHROPIC_TIMEOUT, etc."); printErr != nil {
+		return Environment{}, fmt.Errorf("failed to display examples: %w", printErr)
+	}
+	if _, printErr := fmt.Println("Enter variable name (press Enter when done):"); printErr != nil {
+		return Environment{}, fmt.Errorf("failed to display prompt: %w", printErr)
+	}
+	
+	for {
+		var varName string
+		varName, err = regularInput("Variable name: ")
+		if err != nil {
+			return Environment{}, fmt.Errorf("failed to get variable name: %w", err)
+		}
+		
+		// If empty, we're done
+		if varName == "" {
+			break
+		}
+		
+		// Validate variable name using proper environment variable naming conventions
+		if !isValidEnvVarName(varName) {
+			if _, printErr := fmt.Printf("Invalid variable name '%s'. Must start with letter/underscore and contain only letters, numbers, and underscores.\n", varName); printErr != nil {
+				return Environment{}, fmt.Errorf("failed to display error: %w", printErr)
+			}
+			continue
+		}
+		
+		// Warn about potential conflicts with common system variables
+		if isCommonSystemVar(varName) {
+			if _, printErr := fmt.Printf("Warning: '%s' is a common system variable. This may override existing system settings.\n", varName); printErr != nil {
+				return Environment{}, fmt.Errorf("failed to display warning: %w", printErr)
+			}
+		}
+		
+		// Get variable value
+		var varValue string
+		varValue, err = regularInput(fmt.Sprintf("Value for %s: ", varName))
+		if err != nil {
+			return Environment{}, fmt.Errorf("failed to get variable value: %w", err)
+		}
+		
+		// Store the variable
+		env.EnvVars[varName] = varValue
+		if _, printErr := fmt.Printf("Added %s=%s\n", varName, varValue); printErr != nil {
+			return Environment{}, fmt.Errorf("failed to display confirmation: %w", printErr)
+		}
+	}
+	
 	return env, nil
 }
 
@@ -1141,6 +1194,18 @@ func displayEnvironments(config Config) error {
 			return fmt.Errorf("failed to display masked API key: %w", err)
 		}
 		
+		// Display additional environment variables if any
+		if len(env.EnvVars) > 0 {
+			if _, err := fmt.Printf("  Env Variables:\n"); err != nil {
+				return fmt.Errorf("failed to display env vars header: %w", err)
+			}
+			for key, value := range env.EnvVars {
+				if _, err := fmt.Printf("    %s=%s\n", key, value); err != nil {
+					return fmt.Errorf("failed to display env var: %w", err)
+				}
+			}
+		}
+		
 		// Show truncation warning if any fields were truncated
 		if len(display.TruncatedFields) > 0 {
 			if _, err := fmt.Printf("  (Truncated: %s)\n", strings.Join(display.TruncatedFields, ", ")); err != nil {
@@ -1150,6 +1215,52 @@ func displayEnvironments(config Config) error {
 	}
 	
 	return nil
+}
+
+// isValidEnvVarName validates environment variable names using proper naming conventions
+func isValidEnvVarName(name string) bool {
+	// Environment variable names should:
+	// - Start with a letter (A-Z, a-z) or underscore (_)
+	// - Contain only letters, numbers, and underscores
+	// - Not be empty
+	if len(name) == 0 {
+		return false
+	}
+	
+	// Check first character
+	first := name[0]
+	if !((first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z') || first == '_') {
+		return false
+	}
+	
+	// Check remaining characters
+	for i := 1; i < len(name); i++ {
+		char := name[i]
+		if !((char >= 'A' && char <= 'Z') || (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') || char == '_') {
+			return false
+		}
+	}
+	
+	return true
+}
+
+// isCommonSystemVar checks if the variable name might conflict with common system variables
+func isCommonSystemVar(name string) bool {
+	commonVars := []string{
+		"PATH", "HOME", "USER", "SHELL", "TERM", "LANG", "LC_ALL", "PWD", "OLDPWD",
+		"TMPDIR", "TMP", "TEMP", "EDITOR", "PAGER", "BROWSER", "DISPLAY", "XDG_CONFIG_HOME",
+		"GOPATH", "GOROOT", "JAVA_HOME", "NODE_ENV", "PYTHONPATH", "CLASSPATH",
+		"LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH", "PKG_CONFIG_PATH",
+	}
+	
+	upperName := strings.ToUpper(name)
+	for _, commonVar := range commonVars {
+		if upperName == commonVar {
+			return true
+		}
+	}
+	
+	return false
 }
 
 // maskAPIKey masks an API key showing only first and last few characters

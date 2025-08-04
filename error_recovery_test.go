@@ -347,7 +347,7 @@ func TestErrorRecoveryScenarios(t *testing.T) {
 				if err != nil {
 					t.Errorf("Failed to load config from disk: %v", err)
 				}
-				if len(diskConfig.Environments) != 1 || diskConfig.Environments[0] != validEnv {
+				if len(diskConfig.Environments) != 1 || !equalEnvironments(diskConfig.Environments[0], validEnv) {
 					t.Error("Original config was corrupted")
 				}
 			})

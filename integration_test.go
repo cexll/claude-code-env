@@ -83,7 +83,7 @@ func TestIntegrationWorkflows(t *testing.T) {
 			if !found {
 				t.Errorf("Environment %s not found after save/reload", env.Name)
 			}
-			if reloadedConfig.Environments[index] != env {
+			if !equalEnvironments(reloadedConfig.Environments[index], env) {
 				t.Errorf("Environment %s data mismatch after save/reload", env.Name)
 			}
 		}
@@ -128,7 +128,7 @@ func TestIntegrationWorkflows(t *testing.T) {
 			if len(loadedConfig.Environments) != 1 {
 				t.Errorf("Cycle %d: expected 1 environment, got %d", i, len(loadedConfig.Environments))
 			}
-			if loadedConfig.Environments[0] != env {
+			if !equalEnvironments(loadedConfig.Environments[0], env) {
 				t.Errorf("Cycle %d: environment data corrupted", i)
 			}
 

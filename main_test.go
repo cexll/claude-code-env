@@ -187,7 +187,7 @@ func TestConfigOperations(t *testing.T) {
 			t.Errorf("Expected 1 environment, got %d", len(loadedConfig.Environments))
 		}
 
-		if loadedConfig.Environments[0] != env {
+		if !equalEnvironments(loadedConfig.Environments[0], env) {
 			t.Errorf("Environment mismatch: got %+v, want %+v", loadedConfig.Environments[0], env)
 		}
 	})
