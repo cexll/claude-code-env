@@ -6,6 +6,7 @@ A production-ready Go CLI tool that manages multiple Claude Code API endpoint co
 
 ### 🎯 **Core Functionality**
 - **Environment Management**: Add, list, remove Claude Code configurations with interactive selection
+- **Additional Environment Variables**: Configure custom environment variables per environment (e.g., `ANTHROPIC_SMALL_FAST_MODEL`)
 - **Flag Passthrough**: Transparently forward arguments to Claude Code (`cce -r`, `cce --help`, etc.)
 - **Secure API Key Storage**: Hidden terminal input with masked display and proper file permissions
 - **Universal Terminal Support**: ANSI-free display system working across SSH, CI/CD, and all terminal types
@@ -73,6 +74,7 @@ cce add
 # - API URL (with format validation)  
 # - API Key (secure hidden input)
 # - Model (optional, e.g., claude-3-5-sonnet-20241022)
+# - Additional environment variables (optional, e.g., ANTHROPIC_SMALL_FAST_MODEL)
 ```
 
 #### List all environments:
@@ -85,6 +87,7 @@ cce list
 #   URL:   https://api.anthropic.com
 #   Model: claude-3-5-sonnet-20241022
 #   Key:   sk-ant-************************************************************
+#   Env:   ANTHROPIC_SMALL_FAST_MODEL=claude-3-haiku-20240307
 #
 #   Name:  staging
 #   URL:   https://staging.anthropic.com
@@ -97,6 +100,26 @@ cce list
 cce remove staging
 # Confirmation and secure removal with backup
 ```
+
+#### Using Additional Environment Variables:
+When adding a new environment, you can configure additional environment variables:
+
+```bash
+cce add
+# Example interactive session:
+# Environment name: kimi-k2
+# Base URL: https://api.moonshot.cn
+# API Key: [secure input]
+# Model: moonshot-v1-32k
+# Additional environment variables (optional):
+# Variable name: ANTHROPIC_SMALL_FAST_MODEL
+# Value for ANTHROPIC_SMALL_FAST_MODEL: claude-3-haiku-20240307
+# Variable name: ANTHROPIC_TIMEOUT  
+# Value for ANTHROPIC_TIMEOUT: 30s
+# Variable name: [press Enter to finish]
+```
+
+These environment variables will be automatically set when launching Claude Code with this environment.
 
 ### Command Line Interface
 
@@ -137,13 +160,20 @@ Environments stored in `~/.claude-code-env/config.json`:
       "name": "production",
       "url": "https://api.anthropic.com",
       "api_key": "sk-ant-api03-xxxxx",
-      "model": "claude-3-5-sonnet-20241022"
+      "model": "claude-3-5-sonnet-20241022",
+      "env_vars": {
+        "ANTHROPIC_SMALL_FAST_MODEL": "claude-3-haiku-20240307"
+      }
     },
     {
       "name": "staging", 
       "url": "https://staging.anthropic.com",
       "api_key": "sk-ant-staging-xxxxx",
-      "model": "claude-3-haiku-20240307"
+      "model": "claude-3-haiku-20240307",
+      "env_vars": {
+        "ANTHROPIC_TIMEOUT": "30s",
+        "ANTHROPIC_RETRY_COUNT": "3"
+      }
     }
   ],
   "settings": {
@@ -156,6 +186,15 @@ Environments stored in `~/.claude-code-env/config.json`:
 ```
 
 ### Environment Variables
+
+**Additional Environment Variables Support:**
+CCE supports configuring additional environment variables for each environment. These variables are automatically set when launching Claude Code with the selected environment.
+
+**Common Use Cases:**
+- `ANTHROPIC_SMALL_FAST_MODEL`: Specify a faster model for certain operations (e.g., `claude-3-haiku-20240307`)
+- `ANTHROPIC_TIMEOUT`: Set custom timeout values for API requests (e.g., `30s`)
+- `ANTHROPIC_RETRY_COUNT`: Configure retry behavior for failed requests (e.g., `3`)
+- Any custom environment variables required by your Claude Code setup
 
 **Model Validation Configuration:**
 - `CCE_MODEL_PATTERNS`: Comma-separated custom regex patterns for model validation
@@ -285,6 +324,7 @@ make vet                # Static analysis
 This enhanced version maintains full backward compatibility. Existing configuration files in `~/.claude-code-env/config.json` work immediately without modification.
 
 ### New Features Available
+- **Additional Environment Variables**: Configure custom environment variables like `ANTHROPIC_SMALL_FAST_MODEL`
 - **Flag Passthrough**: Start using `cce -r`, `cce --help`, etc.
 - **Enhanced UI**: Enjoy responsive design and clean navigation
 - **Universal Compatibility**: Works consistently across all terminal types
