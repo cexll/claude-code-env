@@ -1,4 +1,5 @@
 # Claude Code 环境切换器 (CCE)
+[中文](./README_zh.md) [English](./README.md)
 
 生产就绪的 Go CLI 工具，用于管理多个 Claude Code API 端点配置，实现环境间无缝切换（生产、测试、自定义 API 提供商等）。CCE 作为 Claude Code 的智能包装器，具备**标志透传**、**无 ANSI 显示管理**和**通用终端兼容性**功能。
 
@@ -71,7 +72,7 @@ cce -e staging -- chat --interactive  # 使用测试环境，将 chat 标志传�
 cce add
 # 交互式提示：
 # - 环境名称（已验证）
-# - API URL（带格式验证）  
+# - API URL（带格式验证）
 # - API 密钥（安全隐藏输入）
 # - 模型（可选，如 claude-3-5-sonnet-20241022）
 # - 额外环境变量（可选，如 ANTHROPIC_SMALL_FAST_MODEL）
@@ -115,7 +116,7 @@ cce add
 # 额外环境变量（可选）:
 # 变量名: ANTHROPIC_SMALL_FAST_MODEL
 # ANTHROPIC_SMALL_FAST_MODEL 的值: claude-3-haiku-20240307
-# 变量名: ANTHROPIC_TIMEOUT  
+# 变量名: ANTHROPIC_TIMEOUT
 # ANTHROPIC_TIMEOUT 的值: 30s
 # 变量名: [按 Enter 结束]
 ```
@@ -167,7 +168,7 @@ cce [选项] [-- claude-参数...]
       }
     },
     {
-      "name": "staging", 
+      "name": "staging",
       "url": "https://staging.anthropic.com",
       "api_key": "sk-ant-staging-xxxxx",
       "model": "claude-3-haiku-20240307",
@@ -221,7 +222,7 @@ CCE 支持为每个环境配置额外的环境变量。这些变量在使用选�
 
 **4 层渐进式回退**：
 1. **全交互**：带箭头导航和 ANSI 增强的状态渲染
-2. **基础交互**：带箭头键支持的无 ANSI 显示  
+2. **基础交互**：带箭头键支持的无 ANSI 显示
 3. **数字选择**：有限终端的回退
 4. **无头模式**：CI/CD 环境的自动化模式
 
@@ -283,7 +284,7 @@ go build -o cce .
 
 # 运行综合测试套件
 make test                # 或: go test -v ./...
-make test-coverage       # HTML 覆盖率报告  
+make test-coverage       # HTML 覆盖率报告
 make test-security       # 安全专项测试
 make bench              # 性能基准测试
 

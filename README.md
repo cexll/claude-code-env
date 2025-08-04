@@ -1,4 +1,5 @@
 # Claude Code Environment Switcher (CCE)
+[中文](./README_zh.md) [English](./README.md)
 
 A production-ready Go CLI tool that manages multiple Claude Code API endpoint configurations, enabling seamless switching between environments (production, staging, custom API providers, etc.). CCE acts as an intelligent wrapper around Claude Code with **flag passthrough**, **ANSI-free display management**, and **universal terminal compatibility**.
 
@@ -71,7 +72,7 @@ cce -e staging -- chat --interactive  # Use staging, pass chat flags to claude
 cce add
 # Interactive prompts for:
 # - Environment name (validated)
-# - API URL (with format validation)  
+# - API URL (with format validation)
 # - API Key (secure hidden input)
 # - Model (optional, e.g., claude-3-5-sonnet-20241022)
 # - Additional environment variables (optional, e.g., ANTHROPIC_SMALL_FAST_MODEL)
@@ -115,7 +116,7 @@ cce add
 # Additional environment variables (optional):
 # Variable name: ANTHROPIC_SMALL_FAST_MODEL
 # Value for ANTHROPIC_SMALL_FAST_MODEL: claude-3-haiku-20240307
-# Variable name: ANTHROPIC_TIMEOUT  
+# Variable name: ANTHROPIC_TIMEOUT
 # Value for ANTHROPIC_TIMEOUT: 30s
 # Variable name: [press Enter to finish]
 ```
@@ -167,7 +168,7 @@ Environments stored in `~/.claude-code-env/config.json`:
       }
     },
     {
-      "name": "staging", 
+      "name": "staging",
       "url": "https://staging.anthropic.com",
       "api_key": "sk-ant-staging-xxxxx",
       "model": "claude-3-haiku-20240307",
@@ -221,7 +222,7 @@ CCE supports configuring additional environment variables for each environment. 
 
 **4-Tier Progressive Fallback**:
 1. **Full Interactive**: Stateful rendering with arrow navigation and ANSI enhancements
-2. **Basic Interactive**: ANSI-free display with arrow key support  
+2. **Basic Interactive**: ANSI-free display with arrow key support
 3. **Numbered Selection**: Fallback for limited terminals
 4. **Headless Mode**: Automated mode for CI/CD environments
 
@@ -283,7 +284,7 @@ go build -o cce .
 
 # Run comprehensive test suite
 make test                # or: go test -v ./...
-make test-coverage       # HTML coverage report  
+make test-coverage       # HTML coverage report
 make test-security       # Security-specific tests
 make bench              # Performance benchmarks
 
