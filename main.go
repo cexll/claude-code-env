@@ -279,10 +279,9 @@ func validateAPIKey(apiKey string) error {
 	return nil
 }
 
-// validateModel validates Anthropic model naming conventions with adaptive behavior
+// validateModel allows any model name (no validation)
 func validateModel(model string) error {
-	validator := newModelValidator()
-	return validator.validateModelAdaptive(model)
+	return nil // Accept any model name including Kimi, DeepSeek, GLM, etc.
 }
 
 // validateModelAdaptive performs adaptive model validation with graceful degradation

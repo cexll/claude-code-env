@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"strings"
 	"testing"
 )
 
@@ -198,17 +197,20 @@ func TestModelValidationWithConfig(t *testing.T) {
 		}
 	})
 
-	t.Run("invalid models", func(t *testing.T) {
-		invalidModels := []string{
-			"gpt-4",
-			"not-claude",
-			"claude", // Too short
+	t.Run("any models now accepted", func(t *testing.T) {
+		anyModels := []string{
+			"gpt-4",         // Now accepted - OpenAI model
+			"not-claude",    // Now accepted - custom model
+			"claude",        // Now accepted - simple name
+			"kimi",          // Now accepted - Kimi model
+			"deepseek",      // Now accepted - DeepSeek model
+			"glm-4",         // Now accepted - GLM model
 		}
 
-		for _, model := range invalidModels {
+		for _, model := range anyModels {
 			err := validateModel(model)
-			if err == nil {
-				t.Errorf("validateModel('%s') should have failed", model)
+			if err != nil {
+				t.Errorf("validateModel('%s') should now be accepted: %v", model, err)
 			}
 		}
 	})
@@ -298,14 +300,14 @@ func TestEnvironmentValidationWithModel(t *testing.T) {
 			false,
 		},
 		{
-			"invalid model in environment",
+			"any model in environment now accepted",
 			Environment{
 				Name:   "test",
 				URL:    "https://api.anthropic.com",
 				APIKey: "sk-ant-test123456789",
-				Model:  "invalid-model",
+				Model:  "any-model-name",
 			},
-			true,
+			false, // Now accepted
 		},
 	}
 
@@ -320,12 +322,7 @@ func TestEnvironmentValidationWithModel(t *testing.T) {
 				t.Errorf("Unexpected validation error: %v", err)
 			}
 			
-			// Check that model-specific errors are properly identified
-			if tc.expectError && err != nil {
-				if !strings.Contains(err.Error(), "model") {
-					t.Errorf("Expected model-related error, got: %v", err)
-				}
-			}
+			// Note: Model validation is now disabled, so no model-specific errors expected
 		})
 	}
 }
