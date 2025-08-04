@@ -6,7 +6,7 @@ inputs:
   go-version:
     description: 'Go version to install (validated against go.mod)'
     required: false
-    default: '1.24'
+    default: '1.24.5'
   cache-dependency-path:
     description: 'Path to go.mod for cache key generation'
     required: false
@@ -103,7 +103,7 @@ runs:
       shell: bash
       run: |
         echo "Installing development tools..."
-        
+
         # Install golangci-lint
         if ! command -v golangci-lint &> /dev/null; then
           echo "Installing golangci-lint..."
@@ -111,7 +111,7 @@ runs:
         else
           echo "✅ golangci-lint already installed"
         fi
-        
+
         # Install gosec
         if ! command -v gosec &> /dev/null; then
           echo "Installing gosec..."
@@ -119,7 +119,7 @@ runs:
         else
           echo "✅ gosec already installed"
         fi
-        
+
         # Install govulncheck (enhanced security tool)
         if [ "${{ inputs.install-govulncheck }}" = "true" ]; then
           if ! command -v govulncheck &> /dev/null; then
@@ -129,7 +129,7 @@ runs:
             echo "✅ govulncheck already installed"
           fi
         fi
-        
+
         echo "✅ Development tools installation complete"
 
     - name: Verify Go installation and tools
@@ -143,7 +143,7 @@ runs:
         echo "  GOROOT: $(go env GOROOT)"
         echo "  GOOS: $(go env GOOS)"
         echo "  GOARCH: $(go env GOARCH)"
-        
+
         if [ "${{ inputs.install-tools }}" = "true" ]; then
           echo ""
           echo "=== Installed Development Tools ==="
@@ -152,13 +152,13 @@ runs:
           else
             echo "❌ golangci-lint not found"
           fi
-          
+
           if command -v gosec &> /dev/null; then
             echo "✅ gosec: $(gosec -version 2>&1 | head -n1)"
           else
             echo "❌ gosec not found"
           fi
-          
+
           if [ "${{ inputs.install-govulncheck }}" = "true" ]; then
             if command -v govulncheck &> /dev/null; then
               echo "✅ govulncheck: $(govulncheck -version 2>&1 | head -n1)"
@@ -167,7 +167,7 @@ runs:
             fi
           fi
         fi
-        
+
         echo ""
         echo "=== Configuration Validation Results ==="
         if [ "${{ inputs.validate-version-consistency }}" = "true" ]; then
@@ -186,10 +186,10 @@ runs:
         echo "GOCACHE=$(go env GOCACHE)" >> $GITHUB_ENV
         echo "GOROOT=$(go env GOROOT)" >> $GITHUB_ENV
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-        
+
         # Set additional environment variables for enhanced CI
         echo "CCE_GO_VERSION=${{ inputs.go-version }}" >> $GITHUB_ENV
         echo "CCE_TOOLS_INSTALLED=${{ inputs.install-tools }}" >> $GITHUB_ENV
         echo "CCE_CONFIG_VALIDATED=${{ steps.validate-config.outputs.go-version-consistent }}" >> $GITHUB_ENV
-        
+
         echo "✅ Environment variables configured"

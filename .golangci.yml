@@ -6,13 +6,13 @@
 run:
   # Timeout for analysis (default: 1m)
   timeout: 5m
-  
+
   # Exit code when at least one issue was found (default: 1)
   issues-exit-code: 1
-  
+
   # Include test files in linting
   tests: true
-  
+
   # Define which directories to skip
   skip-dirs:
     - vendor
@@ -21,35 +21,35 @@ run:
     - bin
     - dist
     - build
-  
+
   # Skip files matching these patterns
   skip-files:
     - ".*\\.pb\\.go$"
     - ".*_generated\\.go$"
-  
+
   # Allow parallel execution
   concurrency: 4
-  
+
   # Go version to target
-  go: "1.24"
+  go: "1.24.5"
 
 # Output configuration
 output:
   # Format: colored-line-number|line-number|json|tab|checkstyle|code-climate|html|junit-xml|github-actions
   format: colored-line-number
-  
+
   # Print lines of code with issue
   print-issued-lines: true
-  
+
   # Print linter name in issue line
   print-linter-name: true
-  
+
   # Make issues output unique by line
   uniq-by-line: true
-  
+
   # Add a prefix to the output file references
   path-prefix: ""
-  
+
   # Sort results by: file|line|column
   sort-results: true
 
@@ -59,10 +59,10 @@ linters-settings:
   errcheck:
     # Report about not checking of errors in type assertions: `a := b.(MyStruct)`
     check-type-assertions: true
-    
+
     # Report about assignment of errors to blank identifier: `num, _ := strconv.Atoi(numStr)`
     check-blank: true
-    
+
     # List of functions to exclude from checking
     exclude-functions:
       - io/ioutil.ReadFile
@@ -73,7 +73,7 @@ linters-settings:
   govet:
     # Report about shadowed variables
     check-shadowing: true
-    
+
     # Settings per analyzer
     settings:
       printf:
@@ -83,10 +83,10 @@ linters-settings:
           - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
           - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
           - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
-    
+
     # Enable all analyzers
     enable-all: true
-    
+
     # Disable specific analyzers
     disable:
       - fieldalignment # Too strict for this project
@@ -198,17 +198,17 @@ linters-settings:
       - valSwap
       - wrapperFunc
       - yodaStyleExpr
-      
+
     # Enable multiple checks by tags
     enabled-tags:
       - diagnostic
       - style
       - performance
-      
+
     disabled-checks:
       - regexpMust # Can be too strict
       - hugeParam # Can be too strict for interfaces
-      
+
     # Settings per check
     settings:
       captLocal:
@@ -276,7 +276,7 @@ linters-settings:
       - G504 # Import blocklist: net/http/cgi
       - G505 # Import blocklist: crypto/sha1
       - G601 # Implicit memory aliasing of items from a range statement
-    
+
     # To specify the configuration of rules
     config:
       G306: "0644"  # Acceptable file permissions
@@ -291,7 +291,7 @@ linters-settings:
 linters:
   # Disable all linters as default is true
   disable-all: true
-  
+
   # Enable specific linters
   enable:
     # Error detection
@@ -302,22 +302,22 @@ linters:
     - staticcheck       # It's a set of rules from staticcheck
     - typecheck         # Like the front-end of a Go compiler, parses and type-checks Go code
     - unused            # Checks Go code for unused constants, variables, functions and types
-    
+
     # Code style
     - gofmt             # Gofmt checks whether code was gofmt-ed
     - goimports         # In addition to fixing imports, goimports also formats your code in the same style as gofmt
     - misspell          # Finds commonly misspelled English words in comments
-    
+
     # Code complexity
     - gocyclo           # Computes and checks the cyclomatic complexity of functions
     - gocognit          # Computes and checks the cognitive complexity of functions
-    
+
     # Security
     - gosec             # Inspects source code for security problems
-    
+
     # Performance
     - prealloc          # Finds slice declarations that could potentially be preallocated
-    
+
     # Style and best practices
     - gocritic          # Provides diagnostics that check for bugs, performance and style issues
     - unparam           # Reports unused function parameters
@@ -326,7 +326,7 @@ linters:
     - goconst           # Finds repeated strings that could be replaced by a constant
     - dupl              # Tool for code clone detection
     - lll               # Reports long lines
-    
+
     # Additional useful linters
     - asciicheck        # Simple linter to check that your code does not contain non-ASCII identifiers
     - bodyclose         # Checks whether HTTP response body is closed successfully
@@ -360,16 +360,16 @@ issues:
     # Exclude some staticcheck messages
     - "SA9003:"  # Empty body in an if or else branch
     - "SA1019:"  # Using a deprecated function, variable, constant or struct field
-    
+
     # Exclude some gosec messages
     - "G104: Errors unhandled"  # This is covered by errcheck
-    
+
     # Exclude some govet messages
     - "composites:"  # Composite literal uses unkeyed fields
-    
+
     # Exclude lll issues for long lines that are URLs or import statements
     - "Line contains TODO/BUG/FIXME:"
-    
+
   # Excluding configuration per-path, per-linter, per-text and per-source
   exclude-rules:
     # Exclude some linters from running on tests files
@@ -381,24 +381,24 @@ issues:
         - gosec
         - goconst
         - gocognit
-        
+
     # Exclude some linters from running on main.go
     - path: main\.go
       linters:
         - gocyclo
         - gocognit
-        
+
     # Exclude some staticcheck messages
     - linters:
         - staticcheck
       text: "SA9003:"
-      
+
     # Exclude gosec G104 (unhandled errors) in test files
     - path: _test\.go
       text: "G104:"
       linters:
         - gosec
-        
+
     # Exclude certain gocritic checks for test files
     - path: _test\.go
       linters:
@@ -407,10 +407,10 @@ issues:
 
   # Independently of option `exclude` we use default exclude patterns
   exclude-use-default: false
-  
+
   # If set to true exclude and exclude-rules regular expressions become case sensitive
   exclude-case-sensitive: false
-  
+
   # The list of ids of default excludes to include or disable
   include:
     - EXC0002 # disable excluding of issues about comments from golint
@@ -424,19 +424,19 @@ issues:
 
   # Maximum issues count per one linter
   max-issues-per-linter: 0
-  
+
   # Maximum count of issues with the same text
   max-same-issues: 0
-  
+
   # Show only new issues: if there are unstaged changes or untracked files
   new: false
-  
+
   # Show only new issues created after git revision `REV`
   new-from-rev: ""
-  
+
   # Show only new issues created in git patch with set file path
   new-from-patch: ""
-  
+
   # Fix found issues (if it's supported by the linter)
   fix: false
 
@@ -444,10 +444,10 @@ issues:
 severity:
   # Default severity level for issues
   default-severity: error
-  
+
   # Set the default severity for rules
   case-sensitive: false
-  
+
   # Severity rules override the default severity
   rules:
     - linters:

@@ -34,7 +34,7 @@ permissions:
 
 # Environment variables
 env:
-  GO_VERSION: '1.24'
+  GO_VERSION: '1.24.5'
   RELEASE_DIR: 'release-artifacts'
 
 defaults:
@@ -50,7 +50,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       is-prerelease: ${{ steps.version.outputs.is-prerelease }}
-      
+
     steps:
       - name: Checkout code
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
@@ -72,24 +72,24 @@ jobs:
               IS_PRERELEASE="false"
             fi
           fi
-          
+
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "is-prerelease=${IS_PRERELEASE}" >> $GITHUB_OUTPUT
-          
+
           echo "Release version: ${VERSION}"
           echo "Is prerelease: ${IS_PRERELEASE}"
 
       - name: Validate version format
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          
+
           # Validate version format (v1.2.3 or v1.2.3-alpha.1)
           if ! echo "$VERSION" | grep -qE "^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[0-9]+)?)?$"; then
             echo "❌ Invalid version format: $VERSION"
             echo "Expected format: v1.2.3 or v1.2.3-alpha.1"
             exit 1
           fi
-          
+
           echo "✅ Version format is valid"
 
       - name: Check if release already exists
@@ -97,13 +97,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          
+
           if gh release view "$VERSION" >/dev/null 2>&1; then
             echo "❌ Release $VERSION already exists"
             echo "Please choose a different version or delete the existing release"
             exit 1
           fi
-          
+
           echo "✅ Release version is available"
 
       - name: Validate changelog
@@ -111,7 +111,7 @@ jobs:
           if [ -f "CHANGELOG.md" ]; then
             VERSION="${{ steps.version.outputs.version }}"
             CLEAN_VERSION="${VERSION#v}"  # Remove 'v' prefix
-            
+
             # Check if version is mentioned in changelog
             if grep -q "$CLEAN_VERSION\|$VERSION" CHANGELOG.md; then
               echo "✅ Version found in CHANGELOG.md"
@@ -142,7 +142,7 @@ jobs:
             goarch: arm64
           - goos: windows
             goarch: amd64
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
@@ -166,7 +166,7 @@ jobs:
           VERSION="${{ needs.validate-release.outputs.version }}"
           GOOS="${{ matrix.goos }}"
           GOARCH="${{ matrix.goarch }}"
-          
+
           # Determine binary extension
           if [ "$GOOS" = "windows" ]; then
             BINARY_EXT=".exe"
@@ -175,62 +175,62 @@ jobs:
             BINARY_EXT=""
             ARCHIVE_EXT=".tar.gz"
           fi
-          
+
           BINARY_NAME="cce-${GOOS}-${GOARCH}${BINARY_EXT}"
           PACKAGE_NAME="cce-${VERSION}-${GOOS}-${GOARCH}"
-          
+
           # Create package directory
           mkdir -p "${PACKAGE_NAME}"
-          
+
           # Copy binary
           cp "${RELEASE_DIR}/${BINARY_NAME}" "${PACKAGE_NAME}/cce${BINARY_EXT}"
-          
+
           # Copy documentation
           cp README.md "${PACKAGE_NAME}/" 2>/dev/null || echo "README.md not found"
           cp LICENSE "${PACKAGE_NAME}/" 2>/dev/null || echo "LICENSE not found"
           cp CHANGELOG.md "${PACKAGE_NAME}/" 2>/dev/null || echo "CHANGELOG.md not found"
-          
+
           # Create installation script for Unix-like systems
           if [ "$GOOS" != "windows" ]; then
             cat > "${PACKAGE_NAME}/install.sh" << 'EOF'
           #!/bin/bash
           set -e
-          
+
           BINARY_NAME="cce"
           INSTALL_DIR="/usr/local/bin"
-          
+
           echo "Installing Claude Code Environment Switcher..."
-          
+
           # Check if running as root or with sudo
           if [ "$EUID" -ne 0 ]; then
             echo "This script requires root privileges. Please run with sudo."
             exit 1
           fi
-          
+
           # Copy binary to install directory
           cp "$BINARY_NAME" "$INSTALL_DIR/"
           chmod +x "$INSTALL_DIR/$BINARY_NAME"
-          
+
           echo "✅ Installation complete!"
           echo "You can now run: $BINARY_NAME --help"
           EOF
             chmod +x "${PACKAGE_NAME}/install.sh"
           fi
-          
+
           # Create archive
           if [ "$GOOS" = "windows" ]; then
             zip -r "${PACKAGE_NAME}${ARCHIVE_EXT}" "${PACKAGE_NAME}/"
           else
             tar -czf "${PACKAGE_NAME}${ARCHIVE_EXT}" "${PACKAGE_NAME}/"
           fi
-          
+
           # Generate checksums
           if command -v sha256sum >/dev/null 2>&1; then
             sha256sum "${PACKAGE_NAME}${ARCHIVE_EXT}" > "${PACKAGE_NAME}${ARCHIVE_EXT}.sha256"
           elif command -v shasum >/dev/null 2>&1; then
             shasum -a 256 "${PACKAGE_NAME}${ARCHIVE_EXT}" > "${PACKAGE_NAME}${ARCHIVE_EXT}.sha256"
           fi
-          
+
           echo "Package created: ${PACKAGE_NAME}${ARCHIVE_EXT}"
           ls -la "${PACKAGE_NAME}${ARCHIVE_EXT}"*
 
@@ -250,7 +250,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [validate-release, build-release]
     timeout-minutes: 15
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
@@ -275,58 +275,58 @@ jobs:
       - name: Validate release artifacts
         run: |
           echo "Validating release artifacts..."
-          
+
           # Check that all expected artifacts exist
           EXPECTED_PLATFORMS=("linux-amd64" "linux-arm64" "darwin-amd64" "darwin-arm64" "windows-amd64")
-          
+
           for platform in "${EXPECTED_PLATFORMS[@]}"; do
             ARTIFACT_DIR="./release-artifacts/release-${platform//-//}"
-            
+
             if [ ! -d "$ARTIFACT_DIR" ]; then
               echo "❌ Missing artifacts for platform: $platform"
               exit 1
             fi
-            
+
             # Check for archive and checksum
             if [ "$platform" = "windows-amd64" ]; then
               ARCHIVE_PATTERN="cce-*.zip"
             else
               ARCHIVE_PATTERN="cce-*.tar.gz"
             fi
-            
+
             if ! ls $ARTIFACT_DIR/$ARCHIVE_PATTERN 1> /dev/null 2>&1; then
               echo "❌ Missing archive for platform: $platform"
               exit 1
             fi
-            
+
             if ! ls $ARTIFACT_DIR/*.sha256 1> /dev/null 2>&1; then
               echo "❌ Missing checksum for platform: $platform"
               exit 1
             fi
-            
+
             echo "✅ Artifacts validated for platform: $platform"
           done
-          
+
           echo "✅ All release artifacts validated"
 
       - name: Test binary execution (Linux)
         run: |
           echo "Testing Linux binary execution..."
-          
+
           # Extract and test Linux amd64 binary
           cd ./release-artifacts/release-linux/amd64
           ARCHIVE=$(ls cce-*.tar.gz | head -1)
           tar -xzf "$ARCHIVE"
-          
+
           EXTRACTED_DIR=$(ls -d cce-v*/ | head -1)
           cd "$EXTRACTED_DIR"
-          
+
           # Test binary can execute
           timeout 10s ./cce --help >/dev/null 2>&1 || {
             echo "⚠️ Binary execution test failed or timed out"
             echo "This might be expected for some configurations"
           }
-          
+
           echo "✅ Binary execution test completed"
 
   # Generate release notes
@@ -337,7 +337,7 @@ jobs:
     timeout-minutes: 10
     outputs:
       release-notes: ${{ steps.notes.outputs.content }}
-      
+
     steps:
       - name: Checkout code
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
@@ -348,17 +348,17 @@ jobs:
         id: notes
         run: |
           VERSION="${{ needs.validate-release.outputs.version }}"
-          
+
           # Get previous release tag
           PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+" | grep -v "$VERSION" | head -1 || echo "")
-          
+
           echo "# Release Notes for $VERSION" > release-notes.md
           echo "" >> release-notes.md
-          
+
           if [ -n "$PREVIOUS_TAG" ]; then
             echo "## Changes since $PREVIOUS_TAG" >> release-notes.md
             echo "" >> release-notes.md
-            
+
             # Get commits since last release
             git log --pretty=format:"- %s (%h)" "$PREVIOUS_TAG..HEAD" >> release-notes.md
           else
@@ -366,7 +366,7 @@ jobs:
             echo "" >> release-notes.md
             echo "This is the first release of Claude Code Environment Switcher." >> release-notes.md
           fi
-          
+
           echo "" >> release-notes.md
           echo "## Installation" >> release-notes.md
           echo "" >> release-notes.md
@@ -399,7 +399,7 @@ jobs:
           echo '```bash' >> release-notes.md
           echo "sha256sum -c <filename>.sha256" >> release-notes.md
           echo '```' >> release-notes.md
-          
+
           # Set output (GitHub Actions has limits on output size)
           {
             echo "content<<EOF"
@@ -420,7 +420,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [validate-release, build-release, release-validation, generate-release-notes]
     timeout-minutes: 15
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
@@ -433,12 +433,12 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p release-assets
-          
+
           # Collect all archives and checksums
           find ./all-artifacts -name "*.tar.gz" -o -name "*.zip" -o -name "*.sha256" | while read file; do
             cp "$file" release-assets/
           done
-          
+
           echo "Release assets prepared:"
           ls -la release-assets/
 
@@ -449,38 +449,38 @@ jobs:
           VERSION="${{ needs.validate-release.outputs.version }}"
           IS_PRERELEASE="${{ needs.validate-release.outputs.is-prerelease }}"
           IS_DRAFT="${{ github.event.inputs.draft || 'false' }}"
-          
+
           # Prepare release command
           RELEASE_CMD="gh release create \"$VERSION\""
-          
+
           # Add flags
           if [ "$IS_PRERELEASE" = "true" ]; then
             RELEASE_CMD="$RELEASE_CMD --prerelease"
           fi
-          
+
           if [ "$IS_DRAFT" = "true" ]; then
             RELEASE_CMD="$RELEASE_CMD --draft"
           fi
-          
+
           # Add release notes
           RELEASE_CMD="$RELEASE_CMD --notes-file ./all-artifacts/release-notes/release-notes.md"
-          
+
           # Add title
           RELEASE_CMD="$RELEASE_CMD --title \"Claude Code Environment Switcher $VERSION\""
-          
+
           # Add all assets
           for asset in release-assets/*; do
             if [ -f "$asset" ]; then
               RELEASE_CMD="$RELEASE_CMD \"$asset\""
             fi
           done
-          
+
           echo "Creating release with command:"
           echo "$RELEASE_CMD"
-          
+
           # Execute release creation
           eval "$RELEASE_CMD"
-          
+
           echo "✅ Release $VERSION created successfully!"
           echo "🔗 View release: ${{ github.server_url }}/${{ github.repository }}/releases/tag/$VERSION"
 
@@ -488,7 +488,7 @@ jobs:
         if: needs.validate-release.outputs.is-prerelease != 'true'
         run: |
           VERSION="${{ needs.validate-release.outputs.version }}"
-          
+
           echo "🎉 Release $VERSION has been published!"
           echo "📦 Download: ${{ github.server_url }}/${{ github.repository }}/releases/tag/$VERSION"
           echo "📋 Release includes binaries for:"
@@ -505,7 +505,7 @@ jobs:
     needs: [validate-release, create-release]
     if: always() && needs.create-release.result == 'success'
     timeout-minutes: 5
-    
+
     steps:
       - name: Clean up artifacts
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7.0.1

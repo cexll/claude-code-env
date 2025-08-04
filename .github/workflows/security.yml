@@ -47,7 +47,7 @@ permissions:
 
 # Environment variables
 env:
-  GO_VERSION: '1.24'
+  GO_VERSION: '1.24.5'
   SCAN_RESULTS_PATH: 'security-scan-results'
 
 defaults:
@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.inputs.scan-type == 'full' || github.event.inputs.scan-type == 'enhanced' || github.event.inputs.scan-type == ''
     timeout-minutes: 20
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
@@ -100,7 +100,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.inputs.scan-type == 'full' || github.event.inputs.scan-type == 'dependencies' || github.event.inputs.scan-type == ''
     timeout-minutes: 15
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
@@ -119,15 +119,15 @@ jobs:
       - name: Run govulncheck
         run: |
           echo "Running govulncheck for dependency vulnerabilities..."
-          
+
           # Run govulncheck and capture output
           govulncheck -json ./... > ${{ env.SCAN_RESULTS_PATH }}/govulncheck-report.json 2>&1 || true
-          
+
           # Also generate human-readable output
           echo "## Vulnerability Scan Report" > ${{ env.SCAN_RESULTS_PATH }}/vulnerability-summary.md
           echo "Generated on: $(date -u)" >> ${{ env.SCAN_RESULTS_PATH }}/vulnerability-summary.md
           echo "" >> ${{ env.SCAN_RESULTS_PATH }}/vulnerability-summary.md
-          
+
           # Run govulncheck again for readable output
           if govulncheck ./... > ${{ env.SCAN_RESULTS_PATH }}/govulncheck-output.txt 2>&1; then
             echo "✅ No vulnerabilities found in dependencies" | tee -a ${{ env.SCAN_RESULTS_PATH }}/vulnerability-summary.md
@@ -143,17 +143,17 @@ jobs:
       - name: Check for high-severity vulnerabilities
         run: |
           echo "Analyzing vulnerability severity..."
-          
+
           # Parse JSON output for high-severity issues
           if [ -f "${{ env.SCAN_RESULTS_PATH }}/govulncheck-report.json" ]; then
             # Check if any vulnerabilities were found
             if grep -q '"message":' ${{ env.SCAN_RESULTS_PATH }}/govulncheck-report.json; then
               echo "Vulnerabilities detected - analyzing severity..."
-              
+
               # For now, treat any vulnerability as requiring attention
               # In a real implementation, you would parse JSON to check severity
               echo "⚠️ Vulnerabilities found. Please review the report."
-              
+
               # Don't fail the build for dependencies on scheduled runs
               if [ "${{ github.event_name }}" = "schedule" ]; then
                 echo "Scheduled scan - vulnerabilities logged but not failing build"
@@ -181,7 +181,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.inputs.scan-type == 'full' || github.event.inputs.scan-type == 'code' || github.event.inputs.scan-type == ''
     timeout-minutes: 15
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
@@ -199,15 +199,15 @@ jobs:
       - name: Run gosec security scan
         run: |
           echo "Running gosec static security analysis..."
-          
+
           # Run gosec with JSON output
           gosec -fmt json -out ${{ env.SCAN_RESULTS_PATH }}/gosec-report.json ./... 2>&1 || true
-          
+
           # Run gosec with human-readable output
           echo "## Static Security Analysis Report" > ${{ env.SCAN_RESULTS_PATH }}/security-analysis.md
           echo "Generated on: $(date -u)" >> ${{ env.SCAN_RESULTS_PATH }}/security-analysis.md
           echo "" >> ${{ env.SCAN_RESULTS_PATH }}/security-analysis.md
-          
+
           if gosec ./... > ${{ env.SCAN_RESULTS_PATH }}/gosec-output.txt 2>&1; then
             echo "✅ No security issues found in code" | tee -a ${{ env.SCAN_RESULTS_PATH }}/security-analysis.md
           else
@@ -222,11 +222,11 @@ jobs:
       - name: Run custom security tests
         run: |
           echo "Running custom security tests..."
-          
+
           # Check if security tests exist
           if [ -d "test/security" ]; then
             go test -v ./test/security/... > ${{ env.SCAN_RESULTS_PATH }}/security-tests.log 2>&1 || true
-            
+
             if go test ./test/security/...; then
               echo "✅ Custom security tests passed" | tee -a ${{ env.SCAN_RESULTS_PATH }}/security-analysis.md
             else
@@ -240,19 +240,19 @@ jobs:
       - name: Analyze security scan results
         run: |
           echo "Analyzing security scan results..."
-          
+
           # Check gosec results
           if [ -f "${{ env.SCAN_RESULTS_PATH }}/gosec-report.json" ]; then
             # Count issues by severity (basic parsing)
             HIGH_ISSUES=$(grep -o '"severity":"HIGH"' ${{ env.SCAN_RESULTS_PATH }}/gosec-report.json | wc -l || echo "0")
             MEDIUM_ISSUES=$(grep -o '"severity":"MEDIUM"' ${{ env.SCAN_RESULTS_PATH }}/gosec-report.json | wc -l || echo "0")
             LOW_ISSUES=$(grep -o '"severity":"LOW"' ${{ env.SCAN_RESULTS_PATH }}/gosec-report.json | wc -l || echo "0")
-            
+
             echo "Security scan summary:"
             echo "- High severity issues: $HIGH_ISSUES"
             echo "- Medium severity issues: $MEDIUM_ISSUES"
             echo "- Low severity issues: $LOW_ISSUES"
-            
+
             # Fail build if high-severity issues found
             if [ "$HIGH_ISSUES" -gt 0 ]; then
               echo "❌ High-severity security issues found!"
@@ -280,7 +280,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.inputs.scan-type == 'full' || github.event.inputs.scan-type == 'secrets' || github.event.inputs.scan-type == ''
     timeout-minutes: 10
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
@@ -293,30 +293,30 @@ jobs:
       - name: Check for hardcoded secrets
         run: |
           echo "Scanning for potential hardcoded secrets..."
-          
+
           # Create patterns file for common secret patterns
           cat > secret-patterns.txt << 'EOF'
           # API Keys and Tokens
           [Aa][Pp][Ii][_-]?[Kk][Ee][Yy].*[=:]\s*["\']?[A-Za-z0-9+/]{20,}["\']?
           [Tt][Oo][Kk][Ee][Nn].*[=:]\s*["\']?[A-Za-z0-9+/]{20,}["\']?
-          
+
           # AWS Credentials
           [Aa][Ww][Ss][_-]?[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Kk][Ee][Yy]
           [Aa][Ww][Ss][_-]?[Ss][Ee][Cc][Rr][Ee][Tt][_-]?[Kk][Ee][Yy]
-          
+
           # Database URLs
           (postgres|mysql|mongodb)://[^:]+:[^@]+@
-          
+
           # Generic secrets
           [Ss][Ee][Cc][Rr][Ee][Tt].*[=:]\s*["\']?[A-Za-z0-9+/]{10,}["\']?
           [Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd].*[=:]\s*["\']?[A-Za-z0-9+/!@#$%^&*]{8,}["\']?
           EOF
-          
+
           # Scan for secrets
           echo "## Secret Scan Report" > ${{ env.SCAN_RESULTS_PATH }}/secret-scan.md
           echo "Generated on: $(date -u)" >> ${{ env.SCAN_RESULTS_PATH }}/secret-scan.md
           echo "" >> ${{ env.SCAN_RESULTS_PATH }}/secret-scan.md
-          
+
           # Exclude certain patterns and directories
           SECRET_MATCHES=$(grep -r -n -E -f secret-patterns.txt . \
             --exclude-dir=.git \
@@ -326,14 +326,14 @@ jobs:
             --exclude="secret-patterns.txt" \
             --exclude-dir=${{ env.SCAN_RESULTS_PATH }} \
             || true)
-          
+
           if [ -n "$SECRET_MATCHES" ]; then
             echo "⚠️ Potential secrets found:" | tee -a ${{ env.SCAN_RESULTS_PATH }}/secret-scan.md
             echo "" >> ${{ env.SCAN_RESULTS_PATH }}/secret-scan.md
             echo '```' >> ${{ env.SCAN_RESULTS_PATH }}/secret-scan.md
             echo "$SECRET_MATCHES" >> ${{ env.SCAN_RESULTS_PATH }}/secret-scan.md
             echo '```' >> ${{ env.SCAN_RESULTS_PATH }}/secret-scan.md
-            
+
             echo "❌ Potential secrets detected in code!"
             echo "Please review and remove any hardcoded secrets."
             exit 1
@@ -344,10 +344,10 @@ jobs:
       - name: Check environment variable usage
         run: |
           echo "Checking environment variable security patterns..."
-          
+
           # Look for proper environment variable usage
           ENV_USAGE=$(grep -r "os\.Getenv\|os\.LookupEnv" --include="*.go" . || true)
-          
+
           if [ -n "$ENV_USAGE" ]; then
             echo "Environment variable usage found:" >> ${{ env.SCAN_RESULTS_PATH }}/secret-scan.md
             echo '```' >> ${{ env.SCAN_RESULTS_PATH }}/secret-scan.md
@@ -370,7 +370,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.inputs.scan-type == 'full' || github.event.inputs.scan-type == ''
     timeout-minutes: 10
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
@@ -388,17 +388,17 @@ jobs:
       - name: Check dependency licenses
         run: |
           echo "Checking dependency licenses..."
-          
+
           # Get list of dependencies
           go list -m all > ${{ env.SCAN_RESULTS_PATH }}/dependencies.txt
-          
+
           echo "## License Compliance Report" > ${{ env.SCAN_RESULTS_PATH }}/license-report.md
           echo "Generated on: $(date -u)" >> ${{ env.SCAN_RESULTS_PATH }}/license-report.md
           echo "" >> ${{ env.SCAN_RESULTS_PATH }}/license-report.md
-          
+
           echo "### Direct Dependencies" >> ${{ env.SCAN_RESULTS_PATH }}/license-report.md
           grep -v "=> " ${{ env.SCAN_RESULTS_PATH }}/dependencies.txt | head -20 >> ${{ env.SCAN_RESULTS_PATH }}/license-report.md
-          
+
           # Check for potentially problematic licenses (basic check)
           echo "" >> ${{ env.SCAN_RESULTS_PATH }}/license-report.md
           echo "### License Analysis" >> ${{ env.SCAN_RESULTS_PATH }}/license-report.md
@@ -420,7 +420,7 @@ jobs:
     needs: [enhanced-security-scan, dependency-scan, code-security-scan, secret-scan, license-check]
     if: always()
     timeout-minutes: 5
-    
+
     steps:
       - name: Download all security scan results
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a  # v3.0.2
@@ -432,47 +432,47 @@ jobs:
           echo "## 🔒 Security Scan Summary" > security-summary.md
           echo "Generated on: $(date -u)" >> security-summary.md
           echo "" >> security-summary.md
-          
+
           # Check job results
           echo "### Scan Results" >> security-summary.md
-          
+
           if [ "${{ needs.enhanced-security-scan.result }}" = "success" ]; then
             echo "- ✅ Enhanced Security Scan (gosec + govulncheck): Passed" >> security-summary.md
           else
             echo "- ❌ Enhanced Security Scan (gosec + govulncheck): Failed" >> security-summary.md
           fi
-          
+
           if [ "${{ needs.dependency-scan.result }}" = "success" ]; then
             echo "- ✅ Dependency Vulnerability Scan: Passed" >> security-summary.md
           else
             echo "- ❌ Dependency Vulnerability Scan: Failed" >> security-summary.md
           fi
-          
+
           if [ "${{ needs.code-security-scan.result }}" = "success" ]; then
             echo "- ✅ Code Security Analysis: Passed" >> security-summary.md
           else
             echo "- ❌ Code Security Analysis: Failed" >> security-summary.md
           fi
-          
+
           if [ "${{ needs.secret-scan.result }}" = "success" ]; then
             echo "- ✅ Secret Scanning: Passed" >> security-summary.md
           else
             echo "- ❌ Secret Scanning: Failed" >> security-summary.md
           fi
-          
+
           if [ "${{ needs.license-check.result }}" = "success" ]; then
             echo "- ✅ License Compliance: Passed" >> security-summary.md
           else
             echo "- ❌ License Compliance: Failed" >> security-summary.md
           fi
-          
+
           echo "" >> security-summary.md
           echo "### Recommendations" >> security-summary.md
-          
+
           # Add recommendations based on results
           if [ "${{ needs.enhanced-security-scan.result }}" != "success" ] ||
-             [ "${{ needs.dependency-scan.result }}" != "success" ] || 
-             [ "${{ needs.code-security-scan.result }}" != "success" ] || 
+             [ "${{ needs.dependency-scan.result }}" != "success" ] ||
+             [ "${{ needs.code-security-scan.result }}" != "success" ] ||
              [ "${{ needs.secret-scan.result }}" != "success" ]; then
             echo "- 🔍 Review failed security scans and address identified issues" >> security-summary.md
             echo "- 📋 Check detailed reports in the artifacts section" >> security-summary.md
@@ -484,7 +484,7 @@ jobs:
             echo "- 📅 Next automated scan: $(date -d 'next sunday' '+%Y-%m-%d')" >> security-summary.md
             echo "- 🛡️ Enhanced security scanning active (gosec + govulncheck)" >> security-summary.md
           fi
-          
+
           cat security-summary.md
 
       - name: Comment on PR (if applicable)
@@ -494,7 +494,7 @@ jobs:
           script: |
             const fs = require('fs');
             const summary = fs.readFileSync('security-summary.md', 'utf8');
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,

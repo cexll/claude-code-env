@@ -44,7 +44,7 @@ permissions:
 
 # Global environment variables
 env:
-  GO_VERSION: '1.24'
+  GO_VERSION: '1.24.5'
   CACHE_VERSION: 'v1'
   ARTIFACTS_RETENTION: 30
 
@@ -125,7 +125,7 @@ jobs:
           echo "Verifying Go modules..."
           go mod verify
           go mod tidy
-          
+
           # Check if go.mod or go.sum changed
           if ! git diff --quiet go.mod go.sum; then
             echo "❌ go.mod or go.sum is not up to date"
@@ -146,7 +146,7 @@ jobs:
         if: steps.skip-check.outputs.should-skip != 'true'
         run: |
           echo "Checking for common issues..."
-          
+
           # Check for gofmt issues
           if [ "$(gofmt -l . | wc -l)" -gt 0 ]; then
             echo "❌ Code is not properly formatted"
@@ -155,7 +155,7 @@ jobs:
             echo "Please run 'go fmt ./...' and commit the changes"
             exit 1
           fi
-          
+
           echo "✅ Fast validation completed"
 
   # Build matrix - cross-platform compilation
@@ -184,7 +184,7 @@ jobs:
           - os: windows-latest
             goos: windows
             goarch: amd64
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
@@ -217,7 +217,7 @@ jobs:
     needs: [version-validation, fast-validation]
     if: needs.fast-validation.outputs.should-skip != 'true' && needs.version-validation.outputs.go-version-consistent == 'true'
     timeout-minutes: 15
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
@@ -272,7 +272,7 @@ jobs:
     needs: [version-validation, fast-validation]
     if: needs.fast-validation.outputs.should-skip != 'true' && needs.version-validation.outputs.go-version-consistent == 'true'
     timeout-minutes: 10
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
@@ -324,7 +324,7 @@ jobs:
             exit 1
           }
           echo "✅ .golangci.yml configuration is valid"
-          
+
           # Run linting with enhanced reporting
           golangci-lint run --verbose --timeout=5m --out-format=colored-line-number,json:quality-results.json
           echo "✅ golangci-lint check passed"
@@ -357,14 +357,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: [version-validation, fast-validation]
     if: |
-      needs.fast-validation.outputs.should-skip != 'true' && 
+      needs.fast-validation.outputs.should-skip != 'true' &&
       needs.version-validation.outputs.go-version-consistent == 'true' && (
         github.event_name == 'push' && github.ref == 'refs/heads/main' ||
         github.event.inputs.run-security-scan == 'true' ||
         contains(github.event.pull_request.labels.*.name, 'security')
       )
     timeout-minutes: 15
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
@@ -408,14 +408,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: [version-validation, fast-validation]
     if: |
-      needs.fast-validation.outputs.should-skip != 'true' && 
+      needs.fast-validation.outputs.should-skip != 'true' &&
       needs.version-validation.outputs.go-version-consistent == 'true' && (
         github.event_name == 'push' && github.ref == 'refs/heads/main' ||
         github.event.inputs.run-performance-tests == 'true' ||
         contains(github.event.pull_request.labels.*.name, 'performance')
       )
     timeout-minutes: 20
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
@@ -449,35 +449,35 @@ jobs:
     needs: [version-validation, fast-validation, build-matrix, test-suite, quality-checks]
     if: always() && needs.fast-validation.outputs.should-skip != 'true' && needs.version-validation.outputs.go-version-consistent == 'true'
     timeout-minutes: 5
-    
+
     steps:
       - name: Check job results
         run: |
           echo "Checking results of required jobs..."
-          
+
           # Check version validation (critical)
           if [ "${{ needs.version-validation.result }}" != "success" ]; then
             echo "❌ Version validation failed - this is a critical error"
             exit 1
           fi
           echo "✅ Version validation passed"
-          
+
           # Check required job results
           if [ "${{ needs.build-matrix.result }}" != "success" ]; then
             echo "❌ Build matrix failed"
             exit 1
           fi
-          
+
           if [ "${{ needs.test-suite.result }}" != "success" ]; then
             echo "❌ Test suite failed"
             exit 1
           fi
-          
+
           if [ "${{ needs.quality-checks.result }}" != "success" ]; then
             echo "❌ Quality checks failed"
             exit 1
           fi
-          
+
           echo "✅ All required jobs passed"
 
       - name: Download all artifacts
@@ -500,17 +500,17 @@ jobs:
           echo "- **SHA**: ${{ github.sha }}" >> pipeline-summary.md
           echo "- **Triggered by**: ${{ github.event_name }}" >> pipeline-summary.md
           echo "" >> pipeline-summary.md
-          
+
           echo "### Artifacts Generated" >> pipeline-summary.md
           if [ -d "./artifacts" ]; then
             find ./artifacts -name "*.log" -o -name "*.html" -o -name "*.json" -o -name "cce*" | head -20 | while read file; do
               echo "- $(basename "$file")" >> pipeline-summary.md
             done
           fi
-          
+
           echo "" >> pipeline-summary.md
           echo "Generated at: $(date -u)" >> pipeline-summary.md
-          
+
           cat pipeline-summary.md
 
       - name: Comment on PR
@@ -529,18 +529,18 @@ jobs:
             summary += '- ✅ Cross-platform Builds\n';
             summary += '- ✅ Test Suite (Unit + Integration)\n';
             summary += '- ✅ Quality Checks (golangci-lint + .golangci.yml validation)\n';
-            
+
             if ('${{ needs.security-scan.result }}' === 'success') {
               summary += '- ✅ Enhanced Security Scan (gosec + govulncheck)\n';
             }
-            
+
             if ('${{ needs.performance-tests.result }}' === 'success') {
               summary += '- ✅ Performance Tests\n';
             }
-            
+
             summary += '\n### Artifacts\n';
             summary += 'Build artifacts and test reports are available in the [Actions tab](' + context.payload.repository.html_url + '/actions/runs/' + context.runId + ').\n';
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
