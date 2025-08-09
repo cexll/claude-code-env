@@ -266,6 +266,11 @@ func validateURL(urlStr string) error {
 		return fmt.Errorf("URL must have a valid host")
 	}
 
+	// Disallow embedded credentials/userinfo or deceptive host components
+	if parsed.User != nil || strings.Contains(parsed.Host, "@") {
+		return fmt.Errorf("URL must not include credentials")
+	}
+
 	return nil
 }
 
@@ -277,12 +282,42 @@ func validateAPIKey(apiKey string) error {
 	if len(apiKey) < 10 {
 		return fmt.Errorf("API key too short (minimum 10 characters)")
 	}
+	if len(apiKey) > 200 {
+		return fmt.Errorf("API key too long (maximum 200 characters)")
+	}
+	// Reject control characters
+	for _, r := range apiKey {
+		if r < 32 || r == 127 {
+			return fmt.Errorf("API key contains invalid characters")
+		}
+	}
+	// Require indication of Anthropic-style key patterns
+	if !strings.Contains(strings.ToLower(apiKey), "ant") {
+		return fmt.Errorf("API key format not recognized")
+	}
 	return nil
 }
 
 // validateModel allows any model name (no validation)
 func validateModel(model string) error {
-	return nil // Accept any model name including Kimi, DeepSeek, GLM, etc.
+	if model == "" {
+		return nil
+	}
+	// Basic injection/path traversal protections
+	if strings.Contains(model, "$(") || strings.Contains(model, "`") || strings.Contains(model, ";") || strings.Contains(model, "../") {
+		return fmt.Errorf("model contains disallowed characters")
+	}
+	// Reject control characters
+	for _, r := range model {
+		if r < 32 || r == 127 {
+			return fmt.Errorf("model contains invalid characters")
+		}
+	}
+	// Reasonable length limit
+	if len(model) > 200 {
+		return fmt.Errorf("model name too long")
+	}
+	return nil
 }
 
 // validateModelAdaptive performs adaptive model validation with graceful degradation

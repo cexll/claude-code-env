@@ -322,32 +322,26 @@ func detectTerminalCapabilities() terminalCapabilities {
 		Height:     24, // Default fallback
 	}
 
-	// If not a terminal, return basic capabilities
-	if !caps.IsTerminal {
-		return caps
-	}
-
-	// Test raw mode support without state corruption
-	if oldState, err := term.MakeRaw(fd); err == nil {
-		caps.SupportsRaw = true
-		// Immediately restore to avoid corruption
-		if err := term.Restore(fd, oldState); err != nil {
-			caps.SupportsRaw = false
-		}
-	}
-
-	// Test terminal dimensions
-	if width, height, err := term.GetSize(fd); err == nil {
-		caps.Width = width
-		caps.Height = height
-	}
-
-	// Test ANSI support by checking TERM environment variable
+	// Determine ANSI/cursor support based on TERM even if not a TTY
 	termType := os.Getenv("TERM")
 	caps.SupportsANSI = termType != "" && termType != "dumb" && !strings.HasPrefix(termType, "vt5")
-
-	// Cursor control generally available if ANSI is supported
 	caps.SupportsCursor = caps.SupportsANSI
+
+	// Only probe raw mode and size when running in a real terminal
+	if caps.IsTerminal {
+		if oldState, err := term.MakeRaw(fd); err == nil {
+			caps.SupportsRaw = true
+			// Immediately restore to avoid corruption
+			if err := term.Restore(fd, oldState); err != nil {
+				caps.SupportsRaw = false
+			}
+		}
+
+		if width, height, err := term.GetSize(fd); err == nil {
+			caps.Width = width
+			caps.Height = height
+		}
+	}
 
 	return caps
 }

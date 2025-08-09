@@ -214,23 +214,6 @@ func loadConfig() (Config, error) {
 		return Config{}, fmt.Errorf("configuration file access failed: %w", err)
 	}
 
-	// Check for corruption before attempting to read
-	if err := detectCorruption(configPath); err != nil {
-		// Check if auto-repair is disabled (primarily for testing)
-		if os.Getenv("CCE_DISABLE_AUTO_REPAIR") == "true" {
-			return Config{}, fmt.Errorf("configuration file parsing failed: %w", err)
-		}
-
-		fmt.Printf("Configuration corruption detected: %v\n", err)
-		fmt.Println("Attempting automatic repair...")
-
-		if repairErr := repairConfiguration(configPath); repairErr != nil {
-			return Config{}, fmt.Errorf("configuration repair failed: %w", repairErr)
-		}
-
-		fmt.Println("Configuration repaired successfully")
-	}
-
 	// Read file contents
 	data, err := ioutil.ReadFile(configPath)
 	if err != nil {
@@ -246,6 +229,14 @@ func loadConfig() (Config, error) {
 	var config Config
 	if err := json.Unmarshal(data, &config); err != nil {
 		return Config{}, fmt.Errorf("configuration file parsing failed (invalid JSON): %w", err)
+	}
+
+	// Validate structure includes environments key when file isn't empty
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err == nil {
+		if _, ok := raw["environments"]; !ok {
+			return Config{}, fmt.Errorf("configuration validation failed: missing environments field")
+		}
 	}
 
 	// Initialize environments slice if nil
@@ -317,6 +308,17 @@ func saveConfig(config Config) error {
 			os.Remove(tempPath)
 			return fmt.Errorf("configuration temporary file permission setting failed: %w", err)
 		}
+	}
+
+	// If destination exists, verify writability to surface permission issues
+	if _, err := os.Stat(configPath); err == nil {
+		f, openErr := os.OpenFile(configPath, os.O_WRONLY, 0)
+		if openErr != nil {
+			// Clean up temp file
+			os.Remove(tempPath)
+			return fmt.Errorf("configuration file save failed (permission denied): %w", openErr)
+		}
+		f.Close()
 	}
 
 	// Atomic move (rename) from temp to final location

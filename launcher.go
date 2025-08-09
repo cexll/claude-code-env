@@ -34,7 +34,7 @@ func (rc retryConfig) exponentialBackoff(attempt int) time.Duration {
 	return delay
 }
 
-// checkClaudeCodeExists verifies that claude-code is available in PATH with enhanced error guidance
+// checkClaudeCodeExists verifies that claude is available in PATH with enhanced error guidance
 func checkClaudeCodeExists() error {
 	path, err := exec.LookPath("claude")
 	if err != nil {
@@ -44,7 +44,7 @@ func checkClaudeCodeExists() error {
 		errorCtx.addSuggestion("Ensure Claude Code is in your PATH environment variable")
 		errorCtx.addSuggestion("Try running 'claude --version' to verify installation")
 
-		return errorCtx.formatError(fmt.Errorf("claude Code not found in PATH"))
+		return errorCtx.formatError(fmt.Errorf("claude not found in PATH"))
 	}
 
 	// Additional check to ensure the file is executable with permission guidance
@@ -54,7 +54,7 @@ func checkClaudeCodeExists() error {
 		errorCtx.addSuggestion("Check file permissions with: ls -la " + path)
 		errorCtx.addSuggestion("Reinstall Claude Code if file is corrupted")
 
-		return errorCtx.formatError(fmt.Errorf("claude Code path verification failed: %w", err))
+		return errorCtx.formatError(fmt.Errorf("claude path verification failed: %w", err))
 	} else if info.Mode()&0111 == 0 {
 		errorCtx := newErrorContext("permission check", "launcher")
 		errorCtx.addContext("path", path)
@@ -62,7 +62,7 @@ func checkClaudeCodeExists() error {
 		errorCtx.addSuggestion("Fix permissions with: chmod +x " + path)
 		errorCtx.addSuggestion("Reinstall Claude Code if permission issues persist")
 
-		return errorCtx.formatError(fmt.Errorf("claude Code found but not executable"))
+		return errorCtx.formatError(fmt.Errorf("claude found but not executable"))
 	}
 
 	return nil
@@ -111,9 +111,9 @@ func prepareEnvironment(env Environment) ([]string, error) {
 	return newEnv, nil
 }
 
-// launchClaudeCode executes claude-code with the specified environment and arguments
+// launchClaudeCode executes claude with the specified environment and arguments
 func launchClaudeCode(env Environment, args []string) error {
-	// Check if claude-code exists and is executable
+	// Check if claude exists and is executable
 	if err := checkClaudeCodeExists(); err != nil {
 		return fmt.Errorf("Claude Code launcher failed: %w", err)
 	}
@@ -124,7 +124,7 @@ func launchClaudeCode(env Environment, args []string) error {
 		return fmt.Errorf("Claude Code launcher failed: %w", err)
 	}
 
-	// Find claude-code executable path
+	// Find claude executable path
 	claudePath, err := exec.LookPath("claude")
 	if err != nil {
 		return fmt.Errorf("Claude Code launcher failed - executable not found: %w", err)
