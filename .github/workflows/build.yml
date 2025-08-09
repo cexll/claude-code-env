@@ -28,7 +28,7 @@ permissions:
 
 # Environment variables
 env:
-  GO_VERSION: '1.22'
+  GO_VERSION: '1.23'
 
 defaults:
   run:
@@ -144,15 +144,15 @@ jobs:
           # Build binary
           BINARY_NAME="cce-${GOOS}-${GOARCH}${BINARY_EXT}"
           echo "Building ${BINARY_NAME}..."
-          
+
           go build -ldflags="-s -w" -o "${BINARY_NAME}" .
-          
+
           # Verify binary was created
           if [ ! -f "${BINARY_NAME}" ]; then
             echo "❌ Failed to create binary: ${BINARY_NAME}"
             exit 1
           fi
-          
+
           echo "✅ Built ${BINARY_NAME} ($(du -h "${BINARY_NAME}" | cut -f1))"
 
       - name: Create package
@@ -160,7 +160,7 @@ jobs:
           GOOS="${{ matrix.goos }}"
           GOARCH="${{ matrix.goarch }}"
           VERSION="${{ github.ref_type == 'tag' && github.ref_name || format('{0}', github.sha) }}"
-          
+
           # Determine extensions
           if [ "$GOOS" = "windows" ]; then
             BINARY_EXT=".exe"
@@ -172,59 +172,59 @@ jobs:
 
           BINARY_NAME="cce-${GOOS}-${GOARCH}${BINARY_EXT}"
           PACKAGE_NAME="cce-${VERSION}-${GOOS}-${GOARCH}"
-          
+
           # Create package directory
           mkdir -p "${PACKAGE_NAME}"
-          
+
           # Copy binary
           cp "${BINARY_NAME}" "${PACKAGE_NAME}/cce${BINARY_EXT}"
-          
+
           # Copy documentation files if they exist
           for file in README.md LICENSE CHANGELOG.md; do
             if [ -f "$file" ]; then
               cp "$file" "${PACKAGE_NAME}/"
             fi
           done
-          
+
           # Create install script for Unix-like systems
           if [ "$GOOS" != "windows" ]; then
             cat > "${PACKAGE_NAME}/install.sh" << 'EOF'
           #!/bin/bash
           set -e
-          
+
           BINARY_NAME="cce"
           INSTALL_DIR="/usr/local/bin"
-          
+
           echo "Installing Claude Code Environment Switcher..."
-          
+
           if [ "$EUID" -ne 0 ]; then
             echo "This script requires root privileges. Please run with sudo."
             exit 1
           fi
-          
+
           cp "$BINARY_NAME" "$INSTALL_DIR/"
           chmod +x "$INSTALL_DIR/$BINARY_NAME"
-          
+
           echo "✅ Installation complete!"
           echo "Run: $BINARY_NAME --help"
           EOF
             chmod +x "${PACKAGE_NAME}/install.sh"
           fi
-          
+
           # Create archive
           if [ "$GOOS" = "windows" ]; then
             zip -r "${PACKAGE_NAME}${ARCHIVE_EXT}" "${PACKAGE_NAME}/"
           else
             tar -czf "${PACKAGE_NAME}${ARCHIVE_EXT}" "${PACKAGE_NAME}/"
           fi
-          
+
           # Generate checksum
           if command -v sha256sum >/dev/null 2>&1; then
             sha256sum "${PACKAGE_NAME}${ARCHIVE_EXT}" > "${PACKAGE_NAME}${ARCHIVE_EXT}.sha256"
           elif command -v shasum >/dev/null 2>&1; then
             shasum -a 256 "${PACKAGE_NAME}${ARCHIVE_EXT}" > "${PACKAGE_NAME}${ARCHIVE_EXT}.sha256"
           fi
-          
+
           echo "✅ Package created: ${PACKAGE_NAME}${ARCHIVE_EXT}"
           ls -la "${PACKAGE_NAME}${ARCHIVE_EXT}"*
 
@@ -265,11 +265,11 @@ jobs:
           echo "- **SHA**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Triggered by**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ "${{ needs.build.result }}" = "success" ]; then
             echo "### Packages Built" >> $GITHUB_STEP_SUMMARY
             echo "- Linux (amd64, arm64)" >> $GITHUB_STEP_SUMMARY
-            echo "- macOS (amd64, arm64)" >> $GITHUB_STEP_SUMMARY  
+            echo "- macOS (amd64, arm64)" >> $GITHUB_STEP_SUMMARY
             echo "- Windows (amd64)" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Build artifacts are available in the [Actions tab](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})." >> $GITHUB_STEP_SUMMARY
