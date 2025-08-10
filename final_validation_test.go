@@ -1,11 +1,11 @@
 package main
 
 import (
-    "fmt"
-    "runtime"
-    "strings"
-    "testing"
-    "time"
+	"fmt"
+	"runtime"
+	"strings"
+	"testing"
+	"time"
 )
 
 // TestFlagPassthroughIntegration validates complete flag passthrough workflows

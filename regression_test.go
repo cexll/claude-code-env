@@ -104,14 +104,14 @@ func TestRegressionScenarios(t *testing.T) {
 			t.Fatalf("ensureConfigDir() failed: %v", err)
 		}
 
-			invalidJSONs := []string{
-				`{invalid json`,
-				`{"environments": [{"name": "test", "url": "https://api.anthropic.com",}]}`, // trailing comma
-				`{"environments": [{"name": "test" "url": "https://api.anthropic.com"}]}`,   // missing comma
-				// 'null' is treated as minimal config by design; exclude from invalid set
-				`{"environments": "not an array"}`,
-				string([]byte{0xFF, 0xFE, 0xFD}), // binary data
-			}
+		invalidJSONs := []string{
+			`{invalid json`,
+			`{"environments": [{"name": "test", "url": "https://api.anthropic.com",}]}`, // trailing comma
+			`{"environments": [{"name": "test" "url": "https://api.anthropic.com"}]}`,   // missing comma
+			// 'null' is treated as minimal config by design; exclude from invalid set
+			`{"environments": "not an array"}`,
+			string([]byte{0xFF, 0xFE, 0xFD}), // binary data
+		}
 
 		for i, invalidJSON := range invalidJSONs {
 			t.Run("invalid_json_case_"+string(rune(i+'A')), func(t *testing.T) {
@@ -150,7 +150,7 @@ func TestRegressionScenarios(t *testing.T) {
 		}
 	})
 
-		// Removed: issue_api_key_exposure_in_error_messages (wording varies by env/locale)
+	// Removed: issue_api_key_exposure_in_error_messages (wording varies by env/locale)
 
 	t.Run("issue_permission_escalation_via_config_path", func(t *testing.T) {
 		// Previously: Potential for path traversal in config operations

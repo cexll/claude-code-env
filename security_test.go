@@ -717,7 +717,7 @@ func TestSecurityAndPermissions(t *testing.T) {
 		}
 	})
 
-    // Removed: api_key_masking_security and input_validation_edge_cases (env/policy dependent)
+	// Removed: api_key_masking_security and input_validation_edge_cases (env/policy dependent)
 
 	t.Run("configuration_tampering_resistance", func(t *testing.T) {
 		// Test resistance to configuration file tampering

@@ -341,7 +341,7 @@ func TestMemoryLeakPrevention(t *testing.T) {
 		}
 	})
 
-		// Removed allocation-sensitive subtest: model validator cleanup
+	// Removed allocation-sensitive subtest: model validator cleanup
 }
 
 // TestSecureTemporaryFiles tests secure handling of temporary files

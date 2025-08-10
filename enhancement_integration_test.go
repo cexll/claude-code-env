@@ -118,7 +118,7 @@ func TestPerformanceRequirements(t *testing.T) {
 		}
 
 		t.Logf("Average startup overhead: %v (limit: %v)", averageDuration, maxAllowed)
-		})
+	})
 
 }
 
@@ -155,7 +155,6 @@ func TestErrorRecoveryIntegration(t *testing.T) {
 			}
 		}
 	})
-
 
 }
 

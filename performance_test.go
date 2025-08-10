@@ -1,10 +1,10 @@
 package main
 
 import (
-    "io/ioutil"
-    "os"
-    "path/filepath"
-    "testing"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"testing"
 )
 
 // TestPerformanceAndBenchmarks tests performance characteristics and provides benchmarks
