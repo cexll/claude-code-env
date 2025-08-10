@@ -114,6 +114,9 @@ func TestErrorRecoveryScenarios(t *testing.T) {
 	})
 
 	t.Run("missing_files_recovery", func(t *testing.T) {
+		// Ensure no existing config file to simulate missing file state
+		configPath, _ := getConfigPath()
+		_ = os.Remove(configPath)
 		// Test loading config when file doesn't exist (should return empty config)
 		config, err := loadConfig()
 		if err != nil {
@@ -202,6 +205,8 @@ func TestErrorRecoveryScenarios(t *testing.T) {
 		configPath, _ := getConfigPath()
 		dirPath := filepath.Dir(configPath)
 
+		// Ensure any existing file is removed before creating a directory at that path
+		_ = os.Remove(configPath)
 		if err := os.MkdirAll(configPath, 0755); err != nil {
 			t.Fatalf("Failed to create directory: %v", err)
 		}

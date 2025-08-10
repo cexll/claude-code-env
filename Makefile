@@ -2,25 +2,32 @@
 
 .PHONY: build test clean help
 
+# Use a repo-local Go build cache to avoid permission issues in sandboxes
+GOCACHE_DIR ?= $(CURDIR)/.gocache
+GOENV = GOCACHE=$(GOCACHE_DIR)
+
 # Default target
 all: build
 
 # Build the binary
 build:
-	go build -o cce .
+	$(GOENV) go build -o cce .
 
 # Run tests
 test:
-	go test -v ./...
+	@mkdir -p $(GOCACHE_DIR)
+	$(GOENV) go test -v ./...
 
 # Test with coverage
 test-coverage:
-	go test -coverprofile=coverage.out ./...
+	@mkdir -p $(GOCACHE_DIR)
+	$(GOENV) go test -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out -o coverage.html
 
 # Run benchmarks
 bench:
-	go test -bench=. -benchmem ./...
+	@mkdir -p $(GOCACHE_DIR)
+	$(GOENV) go test -bench=. -benchmem ./...
 
 # Format code
 fmt:
@@ -32,7 +39,8 @@ vet:
 
 # Run security tests
 test-security:
-	go test -v -run TestSecurity ./...
+	@mkdir -p $(GOCACHE_DIR)
+	$(GOENV) go test -v -run TestSecurity ./...
 
 # Quality checks (format, vet, test)
 quality: fmt vet test

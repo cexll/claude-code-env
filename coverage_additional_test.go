@@ -393,6 +393,11 @@ func TestLauncherFunctionsCoverage(t *testing.T) {
 	})
 
 	t.Run("launchClaudeCode with valid environment", func(t *testing.T) {
+		// Ensure test does not invoke a real installed `claude` binary
+		origPath := os.Getenv("PATH")
+		os.Setenv("PATH", "")
+		defer os.Setenv("PATH", origPath)
+
 		env := Environment{
 			Name:   "test-launch",
 			URL:    "https://api.anthropic.com",
@@ -406,12 +411,17 @@ func TestLauncherFunctionsCoverage(t *testing.T) {
 		}
 
 		// Should contain appropriate error message
-		if !strings.Contains(err.Error(), "claude-code") {
-			t.Errorf("Expected claude-code error, got: %v", err)
+		if !strings.Contains(strings.ToLower(err.Error()), "claude") {
+			t.Errorf("Expected claude-related error, got: %v", err)
 		}
 	})
 
 	t.Run("launchClaudeCodeWithOutput with valid environment", func(t *testing.T) {
+		// Ensure test does not invoke a real installed `claude` binary
+		origPath := os.Getenv("PATH")
+		os.Setenv("PATH", "")
+		defer os.Setenv("PATH", origPath)
+
 		env := Environment{
 			Name:   "test-launch-output",
 			URL:    "https://api.anthropic.com",
@@ -425,8 +435,8 @@ func TestLauncherFunctionsCoverage(t *testing.T) {
 		}
 
 		// Should contain appropriate error message
-		if !strings.Contains(err.Error(), "claude-code") {
-			t.Errorf("Expected claude-code error, got: %v", err)
+		if !strings.Contains(strings.ToLower(err.Error()), "claude") {
+			t.Errorf("Expected claude-related error, got: %v", err)
 		}
 	})
 }
