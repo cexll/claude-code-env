@@ -182,8 +182,10 @@ func TestRunDefaultMoreCoverage(t *testing.T) {
 
 		// 4. Test that claude-code launcher would be called (but don't actually call it)
 		if err := checkClaudeCodeExists(); err != nil {
-			// This is expected if claude-code is not installed
-			if !strings.Contains(err.Error(), "claude Code not found") {
+			// This is expected if claude is not installed on CI
+			msg := strings.ToLower(err.Error())
+			// Accept any clear "claude" + "not found" wording to avoid env-specific phrasing
+			if !(strings.Contains(msg, "claude") && strings.Contains(msg, "not found")) {
 				t.Errorf("Unexpected claude check error: %v", err)
 			}
 		}
