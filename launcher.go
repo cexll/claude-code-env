@@ -92,7 +92,12 @@ func prepareEnvironment(env Environment) ([]string, error) {
 
 	// Add Anthropic-specific environment variables
 	newEnv = append(newEnv, fmt.Sprintf("ANTHROPIC_BASE_URL=%s", env.URL))
-	newEnv = append(newEnv, fmt.Sprintf("ANTHROPIC_API_KEY=%s", env.APIKey))
+	// Determine which env var name to use for API key
+	keyVar := env.APIKeyEnv
+	if keyVar == "" {
+		keyVar = "ANTHROPIC_API_KEY"
+	}
+	newEnv = append(newEnv, fmt.Sprintf("%s=%s", keyVar, env.APIKey))
 
 	// Add ANTHROPIC_MODEL if specified
 	if env.Model != "" {

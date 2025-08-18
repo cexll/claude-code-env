@@ -54,6 +54,16 @@ This simplified implementation follows KISS principles with just 4 core Go files
 - **Progressive fallback enhancement** maintaining compatibility across terminal types
 - **Display stacking fix** preventing menu content accumulation during navigation
 
+### API Key Environment Variable Selection
+- **Per-environment API key variable** selection between `ANTHROPIC_API_KEY` (default) and `ANTHROPIC_AUTH_TOKEN`
+- **Runtime override** using `-k` or `--key-var` flag
+- **Backward compatibility** maintained with automatic defaults for existing configs
+
+### Additional Environment Variables
+- **Custom environment variables** support per environment (e.g., `ANTHROPIC_SMALL_FAST_MODEL`)
+- **Interactive configuration** during `cce add` command
+- **Automatic injection** when launching Claude Code with selected environment
+
 ## Common Development Commands
 
 ### Build and Test
@@ -104,6 +114,7 @@ The project has **95%+ test coverage** across multiple categories:
 - **Performance**: `performance_test.go` - Benchmarks for critical operations
 - **Terminal Display**: `terminal_display_fix_test.go`, `ui_layout_test.go` - Display management
 - **Display Stacking**: `display_stacking_fix_test.go` - Navigation behavior
+- **Environment Variables**: `envvars_test.go` - Custom environment variable handling
 
 ## Security Implementation
 
@@ -123,7 +134,11 @@ Environments stored in `~/.claude-code-env/config.json`:
       "name": "production",
       "url": "https://api.anthropic.com",
       "api_key": "sk-ant-api03-xxxxx",
-      "model": "claude-3-5-sonnet-20241022"
+      "api_key_env": "ANTHROPIC_API_KEY",
+      "model": "claude-3-5-sonnet-20241022",
+      "env_vars": {
+        "ANTHROPIC_SMALL_FAST_MODEL": "claude-3-haiku-20240307"
+      }
     }
   ]
 }

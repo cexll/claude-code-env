@@ -3,6 +3,12 @@
 
 A production-ready Go CLI tool that manages multiple Claude Code API endpoint configurations, enabling seamless switching between environments (production, staging, custom API providers, etc.). CCE acts as an intelligent wrapper around Claude Code with **flag passthrough**, **ANSI-free display management**, and **universal terminal compatibility**.
 
+## 🆕 What's New
+- Per-environment API key env var selection: choose between `ANTHROPIC_API_KEY` (default) and `ANTHROPIC_AUTH_TOKEN`.
+- `cce add` includes a prompt to select the key variable name.
+- `cce list` now shows `Key Var: ...` for each environment.
+- API key validation is provider-agnostic (length and safety only) for better compatibility.
+
 ## ✨ Key Features
 
 ### 🎯 **Core Functionality**
@@ -74,6 +80,7 @@ cce add
 # - Environment name (validated)
 # - API URL (with format validation)
 # - API Key (secure hidden input)
+# - API Key Env Var Name (1=ANTHROPIC_API_KEY default, 2=ANTHROPIC_AUTH_TOKEN)
 # - Model (optional, e.g., claude-3-5-sonnet-20241022)
 # - Additional environment variables (optional, e.g., ANTHROPIC_SMALL_FAST_MODEL)
 ```
@@ -88,6 +95,7 @@ cce list
 #   URL:   https://api.anthropic.com
 #   Model: claude-3-5-sonnet-20241022
 #   Key:   sk-ant-************************************************************
+#   Key Var: ANTHROPIC_API_KEY
 #   Env:   ANTHROPIC_SMALL_FAST_MODEL=claude-3-haiku-20240307
 #          CUSTOM_TIMEOUT=60s
 #
@@ -95,6 +103,7 @@ cce list
 #   URL:   https://staging.anthropic.com
 #   Model: default
 #   Key:   sk-stg-************************************************************
+#   Key Var: ANTHROPIC_API_KEY
 ```
 
 #### Remove an environment:
@@ -130,6 +139,7 @@ cce [options] [-- claude-args...]
 
 Options:
   -e, --env <name>        Use specific environment
+  -k, --key-var <name>    Override API key env var for this run (ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN)
   -h, --help              Show comprehensive help with examples
 
 Commands:
@@ -146,6 +156,7 @@ Examples:
   cce --env prod                   Launch with 'prod' environment
   cce -r                           Pass -r flag to claude with default environment
   cce --env staging --verbose      Use staging, pass --verbose to claude
+  cce --env dev -k ANTHROPIC_AUTH_TOKEN -- chat  Override key var for this run
   cce -- --help                    Show claude's help
 ```
 
@@ -162,6 +173,7 @@ Environments stored in `~/.claude-code-env/config.json`:
       "name": "production",
       "url": "https://api.anthropic.com",
       "api_key": "sk-ant-api03-xxxxx",
+      "api_key_env": "ANTHROPIC_API_KEY",
       "model": "claude-3-5-sonnet-20241022",
       "env_vars": {
         "ANTHROPIC_SMALL_FAST_MODEL": "claude-3-haiku-20240307"
@@ -171,6 +183,7 @@ Environments stored in `~/.claude-code-env/config.json`:
       "name": "staging",
       "url": "https://staging.anthropic.com",
       "api_key": "sk-ant-staging-xxxxx",
+      "api_key_env": "ANTHROPIC_AUTH_TOKEN",
       "model": "claude-3-haiku-20240307",
       "env_vars": {
         "ANTHROPIC_TIMEOUT": "30s",
@@ -191,6 +204,11 @@ Environments stored in `~/.claude-code-env/config.json`:
 
 **Additional Environment Variables Support:**
 CCE supports configuring additional environment variables for each environment. These variables are automatically set when launching Claude Code with the selected environment.
+
+**API Key Env Var Name:**
+- Per environment, choose which variable name to export for the API key.
+- Supported values: `ANTHROPIC_API_KEY` (default) or `ANTHROPIC_AUTH_TOKEN`.
+- CCE sets only the selected one during launch, along with `ANTHROPIC_BASE_URL` and optional `ANTHROPIC_MODEL`.
 
 **Common Use Cases:**
 - `ANTHROPIC_SMALL_FAST_MODEL`: Specify a faster model for quick operations like code completion (e.g., `claude-3-haiku-20240307`)

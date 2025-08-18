@@ -57,6 +57,41 @@ func TestPrepareEnvironment(t *testing.T) {
 	}
 }
 
+func TestPrepareEnvironmentWithAuthToken(t *testing.T) {
+	env := Environment{
+		Name:      "test",
+		URL:       "https://api.anthropic.com",
+		APIKey:    "sk-ant-api03-test1234567890",
+		APIKeyEnv: "ANTHROPIC_AUTH_TOKEN",
+	}
+
+	envVars, err := prepareEnvironment(env)
+	if err != nil {
+		t.Fatalf("prepareEnvironment() failed: %v", err)
+	}
+
+	var foundToken, foundAPIKey bool
+	for _, ev := range envVars {
+		if strings.HasPrefix(ev, "ANTHROPIC_AUTH_TOKEN=") {
+			foundToken = true
+			expected := "ANTHROPIC_AUTH_TOKEN=" + env.APIKey
+			if ev != expected {
+				t.Errorf("Expected %s, got %s", expected, ev)
+			}
+		}
+		if strings.HasPrefix(ev, "ANTHROPIC_API_KEY=") {
+			foundAPIKey = true
+		}
+	}
+
+	if !foundToken {
+		t.Error("ANTHROPIC_AUTH_TOKEN not found in environment")
+	}
+	if foundAPIKey {
+		t.Error("ANTHROPIC_API_KEY should not be set when using ANTHROPIC_AUTH_TOKEN")
+	}
+}
+
 func TestPrepareEnvironmentInvalid(t *testing.T) {
 	invalidEnv := Environment{
 		Name:   "",

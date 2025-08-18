@@ -1074,6 +1074,35 @@ func promptForEnvironment(config Config) (Environment, error) {
 		break
 	}
 
+	// Choose API key environment variable name
+	for {
+		if _, printErr := fmt.Println("Select API key environment variable:"); printErr != nil {
+			return Environment{}, fmt.Errorf("failed to display prompt: %w", printErr)
+		}
+		if _, printErr := fmt.Println("  1) ANTHROPIC_API_KEY (default)"); printErr != nil {
+			return Environment{}, fmt.Errorf("failed to display option: %w", printErr)
+		}
+		if _, printErr := fmt.Println("  2) ANTHROPIC_AUTH_TOKEN"); printErr != nil {
+			return Environment{}, fmt.Errorf("failed to display option: %w", printErr)
+		}
+		choice, err := regularInput("Enter choice [1/2] (default 1): ")
+		if err != nil {
+			return Environment{}, fmt.Errorf("failed to get selection: %w", err)
+		}
+		choice = strings.TrimSpace(choice)
+		if choice == "" || choice == "1" {
+			env.APIKeyEnv = "ANTHROPIC_API_KEY"
+		} else if choice == "2" {
+			env.APIKeyEnv = "ANTHROPIC_AUTH_TOKEN"
+		} else {
+			if _, printErr := fmt.Println("Invalid choice. Please enter 1 or 2."); printErr != nil {
+				return Environment{}, fmt.Errorf("failed to display error: %w", printErr)
+			}
+			continue
+		}
+		break
+	}
+
 	// Get model (optional)
 	for {
 		env.Model, err = regularInput("Model (optional, press Enter for default): ")
@@ -1186,6 +1215,15 @@ func displayEnvironments(config Config) error {
 		}
 		if _, err := fmt.Printf("  Key:   %s\n", maskedKey); err != nil {
 			return fmt.Errorf("failed to display masked API key: %w", err)
+		}
+
+		// Show selected API key env var name
+		keyVar := env.APIKeyEnv
+		if keyVar == "" {
+			keyVar = "ANTHROPIC_API_KEY"
+		}
+		if _, err := fmt.Printf("  Key Var: %s\n", keyVar); err != nil {
+			return fmt.Errorf("failed to display api key env var: %w", err)
 		}
 
 		// Display additional environment variables if any

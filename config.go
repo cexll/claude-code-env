@@ -353,7 +353,7 @@ func findEnvironmentByName(config Config, name string) (int, bool) {
 
 // equalEnvironments compares two environments for equality, including EnvVars maps
 func equalEnvironments(a, b Environment) bool {
-	if a.Name != b.Name || a.URL != b.URL || a.APIKey != b.APIKey || a.Model != b.Model {
+	if a.Name != b.Name || a.URL != b.URL || a.APIKey != b.APIKey || a.Model != b.Model || a.APIKeyEnv != b.APIKeyEnv {
 		return false
 	}
 

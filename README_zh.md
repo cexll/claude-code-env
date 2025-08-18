@@ -3,6 +3,12 @@
 
 生产就绪的 Go CLI 工具，用于管理多个 Claude Code API 端点配置，实现环境间无缝切换（生产、测试、自定义 API 提供商等）。CCE 作为 Claude Code 的智能包装器，具备**标志透传**、**无 ANSI 显示管理**和**通用终端兼容性**功能。
 
+## 🆕 最近更新
+- 支持为每个环境选择 API Key 变量名：`ANTHROPIC_API_KEY`（默认）或 `ANTHROPIC_AUTH_TOKEN`。
+- `cce add` 新增选择变量名的交互步骤。
+- `cce list` 增加 `Key Var: ...` 展示。
+- API 密钥校验改为与提供商无关（仅长度与字符安全），提高兼容性。
+
 ## ✨ 核心特性
 
 ### 🎯 **核心功能**
@@ -74,6 +80,7 @@ cce add
 # - 环境名称（已验证）
 # - API URL（带格式验证）
 # - API 密钥（安全隐藏输入）
+# - API Key 变量名（1=ANTHROPIC_API_KEY 默认，2=ANTHROPIC_AUTH_TOKEN）
 # - 模型（可选，如 claude-3-5-sonnet-20241022）
 # - 额外环境变量（可选，如 ANTHROPIC_SMALL_FAST_MODEL）
 ```
@@ -88,6 +95,7 @@ cce list
 #   URL:   https://api.anthropic.com
 #   模型:  claude-3-5-sonnet-20241022
 #   密钥:  sk-ant-************************************************************
+#   Key Var: ANTHROPIC_API_KEY
 #   环境:  ANTHROPIC_SMALL_FAST_MODEL=claude-3-haiku-20240307
 #          CUSTOM_TIMEOUT=60s
 #
@@ -95,6 +103,7 @@ cce list
 #   URL:   https://staging.anthropic.com
 #   模型:  default
 #   密钥:  sk-stg-************************************************************
+#   Key Var: ANTHROPIC_API_KEY
 ```
 
 #### 删除环境：
@@ -130,6 +139,7 @@ cce [选项] [-- claude-参数...]
 
 选项:
   -e, --env <名称>        使用特定环境
+  -k, --key-var <名称>    临时覆盖本次运行的 API Key 变量名（ANTHROPIC_API_KEY 或 ANTHROPIC_AUTH_TOKEN）
   -h, --help              显示带示例的综合帮助
 
 命令:
@@ -146,6 +156,7 @@ cce [选项] [-- claude-参数...]
   cce --env prod                   使用 'prod' 环境启动
   cce -r                           使用默认环境将 -r 标志传递给 claude
   cce --env staging --verbose      使用测试环境，将 --verbose 传递给 claude
+  cce --env dev -k ANTHROPIC_AUTH_TOKEN -- chat  本次运行覆盖 Key 变量名
   cce -- --help                    显示 claude 的帮助
 ```
 
@@ -162,6 +173,7 @@ cce [选项] [-- claude-参数...]
       "name": "production",
       "url": "https://api.anthropic.com",
       "api_key": "sk-ant-api03-xxxxx",
+      "api_key_env": "ANTHROPIC_API_KEY",
       "model": "claude-3-5-sonnet-20241022",
       "env_vars": {
         "ANTHROPIC_SMALL_FAST_MODEL": "claude-3-haiku-20240307"
@@ -171,6 +183,7 @@ cce [选项] [-- claude-参数...]
       "name": "staging",
       "url": "https://staging.anthropic.com",
       "api_key": "sk-ant-staging-xxxxx",
+      "api_key_env": "ANTHROPIC_AUTH_TOKEN",
       "model": "claude-3-haiku-20240307",
       "env_vars": {
         "ANTHROPIC_TIMEOUT": "30s",
@@ -191,6 +204,11 @@ cce [选项] [-- claude-参数...]
 
 **额外环境变量支持：**
 CCE 支持为每个环境配置额外的环境变量。这些变量在使用选定环境启动 Claude Code 时自动设置。
+
+**API Key 变量名：**
+- 每个环境可选择用于导出 API Key 的变量名。
+- 支持值：`ANTHROPIC_API_KEY`（默认）或 `ANTHROPIC_AUTH_TOKEN`。
+- 启动时仅设置所选变量名，并同时设置 `ANTHROPIC_BASE_URL`，可选设置 `ANTHROPIC_MODEL`。
 
 **常见用例：**
 - `ANTHROPIC_SMALL_FAST_MODEL`：为代码补全等快速操作指定更快的模型（如 `claude-3-haiku-20240307`）

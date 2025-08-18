@@ -66,12 +66,11 @@ func TestValidateAPIKey(t *testing.T) {
 		input     string
 		wantError bool
 	}{
-		{"valid anthropic key", "sk-ant-api03-1234567890abcdef", false},
-		{"valid with ant", "some-ant-key-1234567890", false},
+		{"valid generic key", "some-random-key-1234567890", false},
 		{"empty key", "", true},
 		{"too short", "sk-ant-12", true},
 		{"too long", strings.Repeat("a", 201), true},
-		{"missing ant", "sk-key-1234567890", true},
+		{"just long enough", "abcdefghij", false},
 	}
 
 	for _, tt := range tests {
@@ -135,6 +134,23 @@ func TestValidateEnvironment(t *testing.T) {
 				t.Errorf("validateEnvironment() error = %v, wantError %v", err, tt.wantError)
 			}
 		})
+	}
+}
+
+func TestValidateAPIKeyEnv(t *testing.T) {
+	// valid empty/default
+	if err := validateAPIKeyEnv(""); err != nil {
+		t.Errorf("expected nil for empty api_key_env, got %v", err)
+	}
+	// valid values
+	for _, v := range []string{"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"} {
+		if err := validateAPIKeyEnv(v); err != nil {
+			t.Errorf("expected valid for %s, got %v", v, err)
+		}
+	}
+	// invalid value
+	if err := validateAPIKeyEnv("FOO"); err == nil {
+		t.Errorf("expected error for invalid api_key_env")
 	}
 }
 

@@ -174,8 +174,15 @@ func TestMainFunction(t *testing.T) {
 		}
 	})
 
-	t.Run("handleCommand with empty args", func(t *testing.T) {
-		// This will try to run default behavior, which will fail without environments
+    t.Run("handleCommand with empty args", func(t *testing.T) {
+		// Isolate from real user config to avoid invoking external binaries
+		orig := configPathOverride
+		tmpDir, _ := ioutil.TempDir("", "cce-test-empty")
+		defer os.RemoveAll(tmpDir)
+		configPathOverride = filepath.Join(tmpDir, ".claude-code-env", "config.json")
+		defer func() { configPathOverride = orig }()
+
+		// This will try default behavior and should fail due to no environments
 		err := handleCommand([]string{})
 		if err == nil {
 			t.Error("Expected error with empty environments")
