@@ -6,125 +6,136 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Claude Code Environment Switcher (CCE) is a lightweight Go CLI tool that manages multiple Claude Code API endpoint configurations, allowing seamless switching between different environments (production, staging, custom API providers, etc.). The tool acts as a wrapper around Claude Code, injecting appropriate environment variables before launching.
 
-## Architecture
-
-This simplified implementation follows KISS principles with just 4 core Go files:
-
-- **`main.go`** (580+ lines): CLI interface, command routing, model validation, and **flag passthrough system**
-- **`config.go`** (367 lines): Configuration management with atomic file operations, backup/recovery, and validation  
-- **`ui.go`** (1000+ lines): User interface with **ANSI-free display management** and 4-tier progressive fallback
-- **`launcher.go`** (174 lines): Process execution with comprehensive error handling and argument forwarding
-
-### Key Design Patterns
-
-**Configuration Management**: Uses atomic file operations (temp file + rename) with proper permissions (0600/0700). Includes automatic backup and recovery for corrupted configs.
-
-**Terminal Compatibility**: 4-tier progressive fallback system with **ANSI-free display management**:
-1. Full interactive (stateful rendering with arrow navigation)
-2. Basic interactive (ANSI-free display with arrow support)  
-3. Numbered selection (fallback for limited terminals)
-4. Headless mode (CI/automation environments)
-
-**Flag Passthrough System**: Two-phase argument parsing that separates CCE flags from Claude Code arguments, allowing transparent command forwarding like `cce -r` or `cce --env prod -- --help`.
-
-**Display State Management**: Stateful rendering system with DisplayState tracking, TextPositioner for universal cursor control, and LineRenderer with differential updates.
-
-**Model Validation**: Future-proof validation with configurable patterns via `CCE_MODEL_PATTERNS` and `CCE_MODEL_STRICT` environment variables. Supports current and anticipated Claude model naming conventions.
-
-**Error Handling**: Structured error context with recovery suggestions and enhanced exit codes (4=terminal, 5=permission, 6=argument parsing, 7=argument validation).
-
-## Recent Enhancements (2024)
-
-### Flag Passthrough System
-- **Two-phase argument parsing** separating CCE flags from Claude arguments
-- **Support for `--` separator** for explicit argument separation
-- **Security validation** preventing command injection while preserving functionality
-- **Enhanced help system** with comprehensive flag passthrough examples
-
-### ANSI-Free Display Management
-- **DisplayState management** tracking screen content and changes
-- **TextPositioner** providing universal cursor control using carriage return and padding
-- **LineRenderer** with stateful menu rendering and differential updates
-- **Terminal width detection** with responsive content formatting
-- **Smart truncation algorithms** preserving essential information visibility
-
-### UI Layout Improvements
-- **Responsive design** adapting to terminal width (20-300+ columns tested)
-- **Content overflow prevention** with guaranteed width compliance
-- **Progressive fallback enhancement** maintaining compatibility across terminal types
-- **Display stacking fix** preventing menu content accumulation during navigation
-
-### API Key Environment Variable Selection
-- **Per-environment API key variable** selection between `ANTHROPIC_API_KEY` (default) and `ANTHROPIC_AUTH_TOKEN`
-- **Runtime override** using `-k` or `--key-var` flag
-- **Backward compatibility** maintained with automatic defaults for existing configs
-
-### Additional Environment Variables
-- **Custom environment variables** support per environment (e.g., `ANTHROPIC_SMALL_FAST_MODEL`)
-- **Interactive configuration** during `cce add` command
-- **Automatic injection** when launching Claude Code with selected environment
-
-## Common Development Commands
+## Commands
 
 ### Build and Test
 ```bash
 # Build binary
 make build              # or: go build -o cce .
 
-# Run tests
+# Run all tests
 make test               # or: go test -v ./...
-make test-coverage      # HTML coverage report
-make test-security      # Security-specific tests
-make bench              # Performance benchmarks
+
+# Run specific test
+go test -v -run TestValidateName ./...      # Run single test by name
+go test -v -run "TestSecurity" ./...        # Run all security tests
+go test -v -run "TestFlagPassthrough" ./...  # Run flag passthrough tests
+
+# Test coverage
+make test-coverage      # Generate HTML coverage report
+go test -coverprofile=coverage.out ./...    # Generate coverage profile
+
+# Performance benchmarks
+make bench              # or: go test -bench=. -benchmem ./...
 
 # Code quality
-make quality            # fmt + vet + test
-make fmt                # Format code
-make vet                # Static analysis
+make quality            # Runs fmt + vet + test
+make fmt                # Format all Go files
+make vet                # Run static analysis
+
+# Security tests
+make test-security      # or: go test -v -run TestSecurity ./...
+
+# Clean build artifacts
+make clean              # Remove cce binary and coverage files
 ```
 
-### Installation and Usage
+### Installation
 ```bash
 # Install to system PATH
-make install            # or: sudo mv cce /usr/local/bin/
+make install            # Builds and moves to /usr/local/bin/
 
-# Basic usage
-./cce                   # Interactive environment selection
-./cce --env production  # Use specific environment
-./cce list              # List environments
-./cce add               # Add new environment
-./cce remove <name>     # Remove environment
-
-# Flag passthrough examples
-./cce -r                # Pass -r flag to claude
-./cce --env staging --verbose  # Use staging env, pass --verbose to claude
-./cce -- --help         # Show claude's help (-- separates flags)
+# Development build
+go build -o cce .       # Build binary in current directory
 ```
 
-## Testing Strategy
+## Architecture
 
-The project has **95%+ test coverage** across multiple categories:
+The project uses a minimalist 4-file architecture following KISS principles:
 
-- **Unit Tests**: `main_test.go`, `config_test.go`, `ui_test.go`, `launcher_test.go`
-- **Integration Tests**: `integration_test.go` - End-to-end workflows
-- **Security Tests**: `security_test.go` - File permissions and input validation
-- **Error Recovery**: `error_recovery_test.go` - Corrupted config handling
-- **Platform Compatibility**: `platform_compatibility_test.go` - Cross-platform functionality
-- **Enhancement Tests**: `enhancement_*_test.go` - Feature-specific test suites
-- **Performance**: `performance_test.go` - Benchmarks for critical operations
-- **Terminal Display**: `terminal_display_fix_test.go`, `ui_layout_test.go` - Display management
-- **Display Stacking**: `display_stacking_fix_test.go` - Navigation behavior
-- **Environment Variables**: `envvars_test.go` - Custom environment variable handling
+### Core Components
 
-## Security Implementation
+**`main.go`** (580+ lines)
+- CLI entry point and command routing
+- Two-phase argument parser for flag passthrough system
+- Model validation with configurable patterns
+- Environment validation (name, URL, API key)
+- Help text generation with flag passthrough examples
 
-- **API Key Protection**: Terminal raw mode input, masked display (first 6 + last 4 chars)
-- **File Security**: Proper permissions (600 for files, 700 for directories)
-- **Input Validation**: URL validation, API key format checking, name sanitization
-- **Command Injection Prevention**: Argument validation with shell metacharacter detection
-- **Process Isolation**: Clean environment variable handling with secure argument forwarding
+**`config.go`** (367 lines)
+- Atomic file operations with temp file + rename pattern
+- Automatic backup creation before modifications
+- Corruption recovery with `.backup` files
+- JSON marshaling with proper indentation
+- File permission management (0600 files, 0700 directories)
 
-## Configuration Structure
+**`ui.go`** (1000+ lines)
+- ANSI-free display core using carriage return and padding
+- 4-tier progressive fallback system
+- DisplayState tracking for stateful rendering
+- TextPositioner for universal cursor control
+- LineRenderer with differential updates
+- Terminal width detection and responsive formatting
+
+**`launcher.go`** (174 lines)
+- Process execution with `exec.Command`
+- Clean environment variable injection
+- Comprehensive error handling with exit code preservation
+- Signal forwarding for graceful shutdown
+
+### Key Design Patterns
+
+**Flag Passthrough System**
+- Phase 1: Parse CCE-specific flags (`--env`, `-e`, `add`, `list`, `remove`)
+- Phase 2: Collect remaining arguments for Claude Code
+- Security validation prevents shell injection
+- Supports `--` separator for explicit boundary
+
+**ANSI-Free Display Management**
+- Core functionality works without ANSI escape codes
+- Uses carriage return (`\r`) and space padding for updates
+- Progressive enhancement for capable terminals
+- Stateful rendering prevents display accumulation
+
+**4-Tier Terminal Fallback**
+1. Full interactive: Arrow keys + ANSI enhancements
+2. Basic interactive: Arrow keys without ANSI
+3. Numbered selection: Simple numbered menu
+4. Headless mode: Auto-select for CI/CD
+
+**Configuration Atomicity**
+- Write to temp file first
+- Validate JSON structure
+- Atomic rename to target
+- Automatic backup before changes
+- Recovery from corrupted configs
+
+### Recent Enhancements
+
+**Per-Environment API Key Variable** (2024)
+- Choose between `ANTHROPIC_API_KEY` (default) and `ANTHROPIC_AUTH_TOKEN` per environment
+- Runtime override with `-k` or `--key-var` flag
+- Backward compatible with existing configurations
+
+**Flag Passthrough System**
+- Two-phase argument parsing separating CCE flags from Claude arguments
+- Support for `--` separator for explicit argument separation
+- Security validation preventing command injection
+
+**ANSI-Free Display Management**
+- DisplayState tracking with differential updates
+- TextPositioner using carriage return and padding (no ANSI codes)
+- LineRenderer for stateful menu rendering
+- Smart truncation preserving essential information
+
+**Additional Environment Variables**
+- Configure custom variables per environment (e.g., `ANTHROPIC_SMALL_FAST_MODEL`)
+- Interactive configuration during `cce add`
+- Automatic injection when launching Claude Code
+
+## Configuration
+
+### File Location and Structure
 
 Environments stored in `~/.claude-code-env/config.json`:
 ```json
@@ -144,43 +155,98 @@ Environments stored in `~/.claude-code-env/config.json`:
 }
 ```
 
-## Dependencies
+### Environment Variables
 
-**Minimal external dependencies:**
-- `golang.org/x/term`: Secure terminal input (hidden API key entry)
-- Go standard library for all other functionality
-
-**No external CLI frameworks** - uses standard `flag` package only.
-
-## Environment Configuration
-
-**Model Validation Configuration:**
+**Model Validation**
 - `CCE_MODEL_PATTERNS`: Comma-separated custom regex patterns
 - `CCE_MODEL_STRICT`: Set to "false" for permissive mode with warnings
 
-## Troubleshooting
+**Custom Variables per Environment**
+- `ANTHROPIC_SMALL_FAST_MODEL`: Faster model for quick operations
+- `ANTHROPIC_TIMEOUT`: Custom timeout values
+- `ANTHROPIC_RETRY_COUNT`: Retry behavior configuration
 
-**Common Issues:**
-1. "claude Code not found in PATH" - Ensure `claude --version` works
-2. Permission denied - Check `~/.claude-code-env/` has 700 permissions
-3. API key validation - Minimum 10 characters required
-4. Display issues - Try different terminal or check TERM environment variable
-5. Flag not recognized - Use `--` to separate CCE flags from Claude flags
+## Testing
 
-**Debug Commands:**
+The project maintains 95%+ test coverage across 20+ test files:
+
+**Test Categories**
+- Unit tests for each core component
+- Integration tests for end-to-end workflows
+- Security tests for injection prevention and permissions
+- Performance benchmarks for critical paths
+- Terminal compatibility tests across different environments
+- Error recovery and corrupted config handling
+
+**Running Tests**
 ```bash
-./cce list              # Test configuration loading
-which claude            # Verify Claude Code installation
-ls -la ~/.claude-code-env/  # Check file permissions
-./cce --help            # Show comprehensive usage including flag passthrough
+# All tests
+go test -v ./...
+
+# Specific test function
+go test -v -run TestValidateName
+
+# Test category (by naming pattern)
+go test -v -run "TestSecurity"
+go test -v -run "TestFlagPassthrough"
+go test -v -run "TestUI"
+
+# With coverage
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
 ```
 
-## Development Principles
+## Security
 
-1. **KISS Principle**: Simple, direct implementations without unnecessary abstractions
-2. **Security First**: Protect API keys and user data at all times  
-3. **Comprehensive Error Handling**: All operations include descriptive error messages
-4. **Backward Compatibility**: Existing configuration files work without modification
-5. **Cross-Platform Support**: Works on macOS, Linux, and Windows
-6. **Terminal Agnostic**: ANSI-free core functionality with enhanced features for capable terminals
-7. **Performance Focused**: Sub-microsecond operations with minimal memory overhead
+**API Key Protection**
+- Terminal raw mode for hidden input
+- Masked display (first 6 + last 4 chars only)
+- Never logged or exposed in process arguments
+
+**File Security**
+- Config files: 0600 permissions
+- Config directory: 0700 permissions
+- Atomic writes with backup
+
+**Input Validation**
+- URL format validation
+- API key minimum length (10 chars)
+- Name sanitization (alphanumeric + dash/underscore)
+- Shell metacharacter detection in arguments
+
+**Process Isolation**
+- Clean environment variable injection
+- No shell interpretation of arguments
+- Secure command execution with `exec.Command`
+
+## Dependencies
+
+- `golang.org/x/term` v0.33.0: Secure terminal input
+- `golang.org/x/sys` v0.34.0: System calls (indirect)
+- Go 1.23.0+ required
+- No external CLI frameworks (uses standard `flag` package)
+
+## Troubleshooting
+
+**Common Issues**
+
+1. **"claude Code not found in PATH"**
+   - Verify: `which claude`
+   - Ensure Claude Code is installed
+
+2. **Permission denied errors**
+   - Check: `ls -la ~/.claude-code-env/`
+   - Fix: `chmod 700 ~/.claude-code-env/`
+
+3. **Display issues in terminal**
+   - Try: Different terminal emulator
+   - Check: `echo $TERM`
+   - Fallback: Use `--env` flag for non-interactive
+
+4. **Flag not recognized**
+   - Use `--` to separate CCE and Claude flags
+   - Example: `cce -- --help`
+
+5. **API key validation fails**
+   - Minimum 10 characters required
+   - Check for trailing spaces
