@@ -1,11 +1,11 @@
 package main
 
 import (
-    "fmt"
-    "net/url"
-    "os"
-    "regexp"
-    "strings"
+	"fmt"
+	"net/url"
+	"os"
+	"regexp"
+	"strings"
 )
 
 // CCE version
@@ -376,28 +376,28 @@ func parseArguments(args []string) ParseResult {
 	}
 
 	// Phase 1: Check for subcommands first
-    switch args[0] {
-    case "list":
-        result.Subcommand = "list"
-        return result
-    case "add":
-        result.Subcommand = "add"
-        return result
-    case "remove":
-        if len(args) < 2 {
-            result.Error = fmt.Errorf("remove command requires environment name")
-            return result
-        }
-        result.Subcommand = "remove"
-        result.CCEFlags["remove_target"] = args[1]
-        return result
-    case "help", "--help", "-h":
-        result.Subcommand = "help"
-        return result
-    case "version", "--version", "-V":
-        result.Subcommand = "version"
-        return result
-    }
+	switch args[0] {
+	case "list":
+		result.Subcommand = "list"
+		return result
+	case "add":
+		result.Subcommand = "add"
+		return result
+	case "remove":
+		if len(args) < 2 {
+			result.Error = fmt.Errorf("remove command requires environment name")
+			return result
+		}
+		result.Subcommand = "remove"
+		result.CCEFlags["remove_target"] = args[1]
+		return result
+	case "help", "--help", "-h":
+		result.Subcommand = "help"
+		return result
+	case "version", "--version", "-V":
+		result.Subcommand = "version"
+		return result
+	}
 
 	// Phase 1: Scan for CCE flags and -- separator
 	i := 0
@@ -413,32 +413,32 @@ func parseArguments(args []string) ParseResult {
 			break
 		}
 
-        // Check for known CCE flags
-        if arg == "--env" || arg == "-e" {
-            if i+1 >= len(args) {
-                result.Error = fmt.Errorf("flag %s requires a value", arg)
-                return result
-            }
-            result.CCEFlags["env"] = args[i+1]
-            i += 2 // Skip flag and its value
-            continue
-        }
+		// Check for known CCE flags
+		if arg == "--env" || arg == "-e" {
+			if i+1 >= len(args) {
+				result.Error = fmt.Errorf("flag %s requires a value", arg)
+				return result
+			}
+			result.CCEFlags["env"] = args[i+1]
+			i += 2 // Skip flag and its value
+			continue
+		}
 
-        if arg == "--help" || arg == "-h" {
-            result.Subcommand = "help"
-            return result
-        }
+		if arg == "--help" || arg == "-h" {
+			result.Subcommand = "help"
+			return result
+		}
 
-        // One-run override for API key env var name
-        if arg == "--key-var" || arg == "-k" {
-            if i+1 >= len(args) {
-                result.Error = fmt.Errorf("flag %s requires a value", arg)
-                return result
-            }
-            result.CCEFlags["key_var"] = args[i+1]
-            i += 2
-            continue
-        }
+		// One-run override for API key env var name
+		if arg == "--key-var" || arg == "-k" {
+			if i+1 >= len(args) {
+				result.Error = fmt.Errorf("flag %s requires a value", arg)
+				return result
+			}
+			result.CCEFlags["key_var"] = args[i+1]
+			i += 2
+			continue
+		}
 
 		// If we encounter an unknown flag or argument, stop CCE processing
 		break
@@ -566,33 +566,33 @@ func handleCommand(args []string) error {
 	}
 
 	// Handle subcommands
-    switch parseResult.Subcommand {
-    case "list":
-        return runList()
-    case "add":
-        return runAdd()
-    case "remove":
-        if target, exists := parseResult.CCEFlags["remove_target"]; exists {
-            return runRemove(target)
-        }
-        return fmt.Errorf("remove command requires environment name")
-    case "help":
-        showHelp()
-        return nil
-    case "version":
-        showVersion()
-        return nil
-    }
+	switch parseResult.Subcommand {
+	case "list":
+		return runList()
+	case "add":
+		return runAdd()
+	case "remove":
+		if target, exists := parseResult.CCEFlags["remove_target"]; exists {
+			return runRemove(target)
+		}
+		return fmt.Errorf("remove command requires environment name")
+	case "help":
+		showHelp()
+		return nil
+	case "version":
+		showVersion()
+		return nil
+	}
 
 	// Validate passthrough arguments for security
 	if err := validatePassthroughArgs(parseResult.ClaudeArgs); err != nil {
 		return fmt.Errorf("argument validation failed: %w", err)
 	}
 
-    // Handle default behavior with environment selection and claude arguments
-    envName := parseResult.CCEFlags["env"]
-    keyVarOverride := parseResult.CCEFlags["key_var"]
-    return runDefaultWithOverride(envName, parseResult.ClaudeArgs, keyVarOverride)
+	// Handle default behavior with environment selection and claude arguments
+	envName := parseResult.CCEFlags["env"]
+	keyVarOverride := parseResult.CCEFlags["key_var"]
+	return runDefaultWithOverride(envName, parseResult.ClaudeArgs, keyVarOverride)
 }
 
 // showHelp displays usage information including flag passthrough capability
@@ -606,10 +606,10 @@ func showHelp() {
 	fmt.Println("  remove <name>       Remove an environment configuration")
 	fmt.Println("  help                Show this help message")
 	fmt.Println("\nOptions:")
-    fmt.Println("  -e, --env <name>    Use specific environment")
-    fmt.Println("  -k, --key-var <name> Override API key env var for this run (ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN)")
-    fmt.Println("  -h, --help          Show help")
-    fmt.Println("      --version       Show version information")
+	fmt.Println("  -e, --env <name>    Use specific environment")
+	fmt.Println("  -k, --key-var <name> Override API key env var for this run (ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN)")
+	fmt.Println("  -h, --help          Show help")
+	fmt.Println("      --version       Show version information")
 	fmt.Println("\nFlag Passthrough:")
 	fmt.Println("  Any arguments after CCE options are passed directly to the claude command.")
 	fmt.Println("  Use '--' to explicitly separate CCE options from claude arguments.")
@@ -625,38 +625,38 @@ func showHelp() {
 	fmt.Println("  cce list                         Show all environments with model information")
 	fmt.Println("  cce add                          Add new environment interactively (with optional model)")
 	fmt.Println("\nFlag Passthrough Examples:")
-    fmt.Println("  cce --env staging -r             Launch claude with 'staging' env and -r flag")
-    fmt.Println("  cce --verbose --model claude-3   Pass --verbose and --model flags to claude")
-    fmt.Println("  cce -- --help                    Show claude's help (-- separates CCE from claude flags)")
-    fmt.Println("  cce -e dev -- chat --interactive Use 'dev' env and pass chat flags to claude")
-    fmt.Println("  cce --env dev --key-var ANTHROPIC_AUTH_TOKEN -- chat  Override key var for this run")
+	fmt.Println("  cce --env staging -r             Launch claude with 'staging' env and -r flag")
+	fmt.Println("  cce --verbose --model claude-3   Pass --verbose and --model flags to claude")
+	fmt.Println("  cce -- --help                    Show claude's help (-- separates CCE from claude flags)")
+	fmt.Println("  cce -e dev -- chat --interactive Use 'dev' env and pass chat flags to claude")
+	fmt.Println("  cce --env dev --key-var ANTHROPIC_AUTH_TOKEN -- chat  Override key var for this run")
 }
 
 // showVersion prints the CLI version information
 func showVersion() {
-    fmt.Printf("CCE version %s\n", cceVersion)
+	fmt.Printf("CCE version %s\n", cceVersion)
 }
 
 // runDefault handles the default behavior: environment selection and Claude Code launch with arguments
 func runDefault(envName string, claudeArgs []string) error {
-    return runDefaultWithOverride(envName, claudeArgs, "")
+	return runDefaultWithOverride(envName, claudeArgs, "")
 }
 
 // runDefaultWithOverride handles the default behavior with optional API key env var override
 func runDefaultWithOverride(envName string, claudeArgs []string, keyVarOverride string) error {
-    // Validate override early
-    if keyVarOverride != "" {
-        keyVarOverride = strings.ToUpper(keyVarOverride)
-        if err := validateAPIKeyEnv(keyVarOverride); err != nil {
-            return fmt.Errorf("argument validation failed: invalid --key-var: %w", err)
-        }
-    }
+	// Validate override early
+	if keyVarOverride != "" {
+		keyVarOverride = strings.ToUpper(keyVarOverride)
+		if err := validateAPIKeyEnv(keyVarOverride); err != nil {
+			return fmt.Errorf("argument validation failed: invalid --key-var: %w", err)
+		}
+	}
 
-    // Load configuration
-    config, err := loadConfig()
-    if err != nil {
-        return fmt.Errorf("configuration loading failed: %w", err)
-    }
+	// Load configuration
+	config, err := loadConfig()
+	if err != nil {
+		return fmt.Errorf("configuration loading failed: %w", err)
+	}
 
 	var selectedEnv Environment
 
@@ -675,15 +675,15 @@ func runDefaultWithOverride(envName string, claudeArgs []string, keyVarOverride 
 		}
 	}
 
-    // Apply one-run override if provided
-    if keyVarOverride != "" {
-        selectedEnv.APIKeyEnv = keyVarOverride
-    }
+	// Apply one-run override if provided
+	if keyVarOverride != "" {
+		selectedEnv.APIKeyEnv = keyVarOverride
+	}
 
-    // Display selected environment
-    if _, err := fmt.Printf("Using environment: %s (%s)\n", selectedEnv.Name, selectedEnv.URL); err != nil {
-        return fmt.Errorf("failed to display selected environment: %w", err)
-    }
+	// Display selected environment
+	if _, err := fmt.Printf("Using environment: %s (%s)\n", selectedEnv.Name, selectedEnv.URL); err != nil {
+		return fmt.Errorf("failed to display selected environment: %w", err)
+	}
 
 	// Launch Claude Code with arguments
 	return launchClaudeCode(selectedEnv, claudeArgs)
