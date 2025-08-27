@@ -4,6 +4,7 @@
 生产就绪的 Go CLI 工具，用于管理多个 Claude Code API 端点配置，实现环境间无缝切换（生产、测试、自定义 API 提供商等）。CCE 作为 Claude Code 的智能包装器，具备**标志透传**、**无 ANSI 显示管理**和**通用终端兼容性**功能。
 
 ## 🆕 最近更新
+- **--yolo 标志**：`--dangerously-skip-permissions` 的便捷快捷方式
 - 支持为每个环境选择 API Key 变量名：`ANTHROPIC_API_KEY`（默认）或 `ANTHROPIC_AUTH_TOKEN`。
 - `cce add` 新增选择变量名的交互步骤。
 - `cce list` 增加 `Key Var: ...` 展示。
@@ -69,6 +70,8 @@ cce -r                          # 直接将 -r 标志传递给 claude
 cce --env prod --verbose        # 使用生产环境，将 --verbose 传递给 claude
 cce -- --help                   # 显示 claude 的帮助（-- 明确分隔标志）
 cce -e staging -- chat --interactive  # 使用测试环境，将 chat 标志传递给 claude
+cce --yolo                      # 快速跳过权限检查（--dangerously-skip-permissions 的快捷方式）
+cce --env prod --yolo           # 使用生产环境并跳过权限检查
 ```
 
 ### 环境管理
@@ -141,6 +144,7 @@ cce [选项] [-- claude-参数...]
   -e, --env <名称>        使用特定环境
   -k, --key-var <名称>    临时覆盖本次运行的 API Key 变量名（ANTHROPIC_API_KEY 或 ANTHROPIC_AUTH_TOKEN）
   -h, --help              显示带示例的综合帮助
+      --yolo              快速跳过权限检查（--dangerously-skip-permissions 的快捷方式）
 
 命令:
   list                    以响应式格式列出所有环境
@@ -158,6 +162,8 @@ cce [选项] [-- claude-参数...]
   cce --env staging --verbose      使用测试环境，将 --verbose 传递给 claude
   cce --env dev -k ANTHROPIC_AUTH_TOKEN -- chat  本次运行覆盖 Key 变量名
   cce -- --help                    显示 claude 的帮助
+  cce --yolo                       快速跳过权限检查
+  cce --env prod --yolo           使用生产环境并跳过权限
 ```
 
 ## 📁 配置

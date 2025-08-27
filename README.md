@@ -4,6 +4,7 @@
 A production-ready Go CLI tool that manages multiple Claude Code API endpoint configurations, enabling seamless switching between environments (production, staging, custom API providers, etc.). CCE acts as an intelligent wrapper around Claude Code with **flag passthrough**, **ANSI-free display management**, and **universal terminal compatibility**.
 
 ## 🆕 What's New
+- **--yolo flag**: Quick shortcut for Claude's `--dangerously-skip-permissions` flag
 - Per-environment API key env var selection: choose between `ANTHROPIC_API_KEY` (default) and `ANTHROPIC_AUTH_TOKEN`.
 - `cce add` includes a prompt to select the key variable name.
 - `cce list` now shows `Key Var: ...` for each environment.
@@ -69,6 +70,8 @@ cce -r                          # Pass -r flag directly to claude
 cce --env prod --verbose        # Use prod environment, pass --verbose to claude
 cce -- --help                   # Show claude's help (-- explicitly separates flags)
 cce -e staging -- chat --interactive  # Use staging, pass chat flags to claude
+cce --yolo                      # Quick shortcut for --dangerously-skip-permissions
+cce --env prod --yolo           # Use prod env and skip permissions
 ```
 
 ### Environment Management
@@ -141,6 +144,7 @@ Options:
   -e, --env <name>        Use specific environment
   -k, --key-var <name>    Override API key env var for this run (ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN)
   -h, --help              Show comprehensive help with examples
+      --yolo              Quick shortcut for --dangerously-skip-permissions
 
 Commands:
   list                    List all environments with responsive formatting
@@ -158,6 +162,8 @@ Examples:
   cce --env staging --verbose      Use staging, pass --verbose to claude
   cce --env dev -k ANTHROPIC_AUTH_TOKEN -- chat  Override key var for this run
   cce -- --help                    Show claude's help
+  cce --yolo                       Quick bypass of permissions check
+  cce --env prod --yolo           Use prod environment and skip permissions
 ```
 
 ## 📁 Configuration
