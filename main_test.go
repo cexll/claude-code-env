@@ -911,3 +911,129 @@ func TestHandleCommand(t *testing.T) {
 		}
 	})
 }
+
+func TestYoloFlagTransformation(t *testing.T) {
+	tests := []struct {
+		name           string
+		args           []string
+		expectedResult ParseResult
+	}{
+		{
+			name: "single --yolo flag",
+			args: []string{"--yolo"},
+			expectedResult: ParseResult{
+				CCEFlags:   make(map[string]string),
+				ClaudeArgs: []string{"--dangerously-skip-permissions"},
+				Subcommand: "",
+				Error:      nil,
+			},
+		},
+		{
+			name: "multiple --yolo flags",
+			args: []string{"--yolo", "--yolo", "command"},
+			expectedResult: ParseResult{
+				CCEFlags:   make(map[string]string),
+				ClaudeArgs: []string{"--dangerously-skip-permissions", "--dangerously-skip-permissions", "command"},
+				Subcommand: "",
+				Error:      nil,
+			},
+		},
+		{
+			name: "--yolo with --env flag",
+			args: []string{"--env", "prod", "--yolo", "chat"},
+			expectedResult: ParseResult{
+				CCEFlags:   map[string]string{"env": "prod"},
+				ClaudeArgs: []string{"--dangerously-skip-permissions", "chat"},
+				Subcommand: "",
+				Error:      nil,
+			},
+		},
+		{
+			name: "--yolo after -- separator",
+			args: []string{"--env", "test", "--", "--yolo", "command"},
+			expectedResult: ParseResult{
+				CCEFlags:   map[string]string{"env": "test"},
+				ClaudeArgs: []string{"--dangerously-skip-permissions", "command"},
+				Subcommand: "",
+				Error:      nil,
+			},
+		},
+		{
+			name: "mixed flags with --yolo",
+			args: []string{"--yolo", "--env", "staging", "--yolo", "chat", "--interactive"},
+			expectedResult: ParseResult{
+				CCEFlags:   map[string]string{"env": "staging"},
+				ClaudeArgs: []string{"--dangerously-skip-permissions", "--dangerously-skip-permissions", "chat", "--interactive"},
+				Subcommand: "",
+				Error:      nil,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseArguments(tt.args)
+			
+			if result.Error != nil && tt.expectedResult.Error == nil {
+				t.Errorf("Unexpected error: %v", result.Error)
+				return
+			}
+			
+			if result.Subcommand != tt.expectedResult.Subcommand {
+				t.Errorf("Subcommand mismatch: got %q, want %q", result.Subcommand, tt.expectedResult.Subcommand)
+			}
+			
+			// Check CCE flags
+			if len(result.CCEFlags) != len(tt.expectedResult.CCEFlags) {
+				t.Errorf("CCEFlags length mismatch: got %d, want %d", len(result.CCEFlags), len(tt.expectedResult.CCEFlags))
+			}
+			for key, expectedValue := range tt.expectedResult.CCEFlags {
+				if actualValue, exists := result.CCEFlags[key]; !exists || actualValue != expectedValue {
+					t.Errorf("CCEFlags[%s] mismatch: got %q, want %q", key, actualValue, expectedValue)
+				}
+			}
+			
+			// Check Claude args
+			if len(result.ClaudeArgs) != len(tt.expectedResult.ClaudeArgs) {
+				t.Errorf("ClaudeArgs length mismatch: got %d, want %d", len(result.ClaudeArgs), len(tt.expectedResult.ClaudeArgs))
+			}
+			for i, expectedArg := range tt.expectedResult.ClaudeArgs {
+				if i >= len(result.ClaudeArgs) || result.ClaudeArgs[i] != expectedArg {
+					t.Errorf("ClaudeArgs[%d] mismatch: got %q, want %q", i, result.ClaudeArgs[i], expectedArg)
+				}
+			}
+		})
+	}
+}
+
+func TestYoloFlagEdgeCases(t *testing.T) {
+	t.Run("--yolo mixed with other Claude flags", func(t *testing.T) {
+		args := []string{"--yolo", "--verbose", "--model", "claude-3", "--yolo"}
+		result := parseArguments(args)
+		
+		expectedArgs := []string{"--dangerously-skip-permissions", "--verbose", "--model", "claude-3", "--dangerously-skip-permissions"}
+		if len(result.ClaudeArgs) != len(expectedArgs) {
+			t.Errorf("ClaudeArgs length mismatch: got %d, want %d", len(result.ClaudeArgs), len(expectedArgs))
+		}
+		
+		for i, expected := range expectedArgs {
+			if i >= len(result.ClaudeArgs) || result.ClaudeArgs[i] != expected {
+				t.Errorf("ClaudeArgs[%d] mismatch: got %q, want %q", i, result.ClaudeArgs[i], expected)
+			}
+		}
+	})
+	
+	t.Run("--yolo with key-var override", func(t *testing.T) {
+		args := []string{"--key-var", "ANTHROPIC_AUTH_TOKEN", "--yolo", "chat"}
+		result := parseArguments(args)
+		
+		if result.CCEFlags["key_var"] != "ANTHROPIC_AUTH_TOKEN" {
+			t.Errorf("key_var flag not captured: got %q, want %q", result.CCEFlags["key_var"], "ANTHROPIC_AUTH_TOKEN")
+		}
+		
+		expectedArgs := []string{"--dangerously-skip-permissions", "chat"}
+		if len(result.ClaudeArgs) != len(expectedArgs) {
+			t.Errorf("ClaudeArgs length mismatch: got %d, want %d", len(result.ClaudeArgs), len(expectedArgs))
+		}
+	})
+}

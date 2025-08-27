@@ -440,14 +440,69 @@ func parseArguments(args []string) ParseResult {
 			continue
 		}
 
+		if arg == "--yolo" {
+			// Transform --yolo to --dangerously-skip-permissions for Claude
+			// We don't store this in CCEFlags since it's not a CCE-specific flag
+			// Instead, we'll handle the transformation during Phase 2
+			i++ // Skip this argument, will be transformed later
+			continue
+		}
+
 		// If we encounter an unknown flag or argument, stop CCE processing
 		break
 	}
 
-	// Phase 2: Collect remaining arguments for claude
-	if separatorFound || i < len(args) {
-		result.ClaudeArgs = args[i:]
+	// Phase 2: Collect remaining arguments for claude with --yolo transformation
+	// Start from the beginning and collect all non-CCE arguments, transforming --yolo
+	transformedArgs := make([]string, 0)
+	startIndex := 0
+	if separatorFound {
+		startIndex = i // Start after the -- separator
+		claudeArgs := args[startIndex:]
+		for _, arg := range claudeArgs {
+			if arg == "--yolo" {
+				transformedArgs = append(transformedArgs, "--dangerously-skip-permissions")
+			} else {
+				transformedArgs = append(transformedArgs, arg)
+			}
+		}
+	} else {
+		// Collect all arguments, but skip CCE flags and transform --yolo
+		for j := 0; j < len(args); j++ {
+			arg := args[j]
+			
+			// Skip CCE flags we already processed
+			if (arg == "--env" || arg == "-e") && j+1 < len(args) {
+				j++ // Skip the flag value too
+				continue
+			}
+			if (arg == "--key-var" || arg == "-k") && j+1 < len(args) {
+				j++ // Skip the flag value too
+				continue
+			}
+			if arg == "--help" || arg == "-h" {
+				continue
+			}
+			
+			// Transform --yolo
+			if arg == "--yolo" {
+				transformedArgs = append(transformedArgs, "--dangerously-skip-permissions")
+			} else {
+				// Only include non-CCE arguments
+				isCCEFlag := false
+				if j > 0 {
+					prevArg := args[j-1]
+					if prevArg == "--env" || prevArg == "-e" || prevArg == "--key-var" || prevArg == "-k" {
+						isCCEFlag = true
+					}
+				}
+				if !isCCEFlag {
+					transformedArgs = append(transformedArgs, arg)
+				}
+			}
+		}
 	}
+	result.ClaudeArgs = transformedArgs
 
 	return result
 }
@@ -610,6 +665,7 @@ func showHelp() {
 	fmt.Println("  -k, --key-var <name> Override API key env var for this run (ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN)")
 	fmt.Println("  -h, --help          Show help")
 	fmt.Println("      --version       Show version information")
+	fmt.Println("      --yolo          Shortcut for --dangerously-skip-permissions (passed to claude)")
 	fmt.Println("\nFlag Passthrough:")
 	fmt.Println("  Any arguments after CCE options are passed directly to the claude command.")
 	fmt.Println("  Use '--' to explicitly separate CCE options from claude arguments.")
@@ -630,6 +686,9 @@ func showHelp() {
 	fmt.Println("  cce -- --help                    Show claude's help (-- separates CCE from claude flags)")
 	fmt.Println("  cce -e dev -- chat --interactive Use 'dev' env and pass chat flags to claude")
 	fmt.Println("  cce --env dev --key-var ANTHROPIC_AUTH_TOKEN -- chat  Override key var for this run")
+	fmt.Println("  cce --yolo                       Launch claude with --dangerously-skip-permissions")
+	fmt.Println("  cce --env prod --yolo            Use 'prod' env and bypass permissions")
+	fmt.Println("  cce --yolo --yolo -- command     Multiple --yolo flags (each becomes --dangerously-skip-permissions)")
 }
 
 // showVersion prints the CLI version information
