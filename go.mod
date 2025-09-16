@@ -1,4 +1,4 @@
-module simplified-cce
+module github.com/cexll/claude-code-env
 
 go 1.23.0
 
