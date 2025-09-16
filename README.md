@@ -33,6 +33,16 @@ A production-ready Go CLI tool that manages multiple Claude Code API endpoint co
 
 ## 📦 Installation
 
+### Install via go install (Recommended)
+
+```bash
+# Install latest version
+go install github.com/cexll/claude-code-env@latest
+
+# Or install specific version
+go install github.com/cexll/claude-code-env@v2.1.0
+```
+
 ### Build from Source
 
 ```bash

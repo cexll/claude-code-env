@@ -33,6 +33,16 @@
 
 ## 📦 安装
 
+### 通过 go install 安装（推荐）
+
+```bash
+# 安装最新版本
+go install github.com/cexll/claude-code-env@latest
+
+# 或安装特定版本
+go install github.com/cexll/claude-code-env@v2.1.0
+```
+
 ### 从源码构建
 
 ```bash
