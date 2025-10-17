@@ -100,6 +100,7 @@ type Environment struct {
 // Config represents the complete configuration with all environments
 type Config struct {
 	Environments []Environment   `json:"environments"`
+	LastSelected string           `json:"last_selected,omitempty"`
 	Settings     *ConfigSettings `json:"settings,omitempty"`
 }
 
@@ -728,6 +729,11 @@ func runDefaultWithOverride(envName string, claudeArgs []string, keyVarOverride 
 		selectedEnv, err = selectEnvironment(config)
 		if err != nil {
 			return fmt.Errorf("environment selection failed: %w", err)
+		}
+
+		// Save last selected environment
+		if err := updateLastSelected(&config, selectedEnv.Name); err != nil {
+			return fmt.Errorf("failed to save last selected environment: %w", err)
 		}
 	}
 
