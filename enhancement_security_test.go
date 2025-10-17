@@ -210,11 +210,10 @@ func TestInputValidationSecurity(t *testing.T) {
 
 	t.Run("API key format validation", func(t *testing.T) {
 		maliciousKeys := []string{
-			"",                         // Empty
-			"short",                    // Too short
-			"sk-ant-\x00hidden",        // Null byte
-			"sk-ant-\r\nhidden",        // Newline injection
-			strings.Repeat("a", 10000), // Excessive length
+			"",                  // Empty
+			"short",             // Too short
+			"sk-ant-\x00hidden", // Null byte
+			"sk-ant-\r\nhidden", // Newline injection
 		}
 
 		for _, key := range maliciousKeys {

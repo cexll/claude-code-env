@@ -69,7 +69,6 @@ func TestValidateAPIKey(t *testing.T) {
 		{"valid generic key", "some-random-key-1234567890", false},
 		{"empty key", "", true},
 		{"too short", "sk-ant-12", true},
-		{"too long", strings.Repeat("a", 201), true},
 		{"just long enough", "abcdefghij", false},
 	}
 
@@ -973,16 +972,16 @@ func TestYoloFlagTransformation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := parseArguments(tt.args)
-			
+
 			if result.Error != nil && tt.expectedResult.Error == nil {
 				t.Errorf("Unexpected error: %v", result.Error)
 				return
 			}
-			
+
 			if result.Subcommand != tt.expectedResult.Subcommand {
 				t.Errorf("Subcommand mismatch: got %q, want %q", result.Subcommand, tt.expectedResult.Subcommand)
 			}
-			
+
 			// Check CCE flags
 			if len(result.CCEFlags) != len(tt.expectedResult.CCEFlags) {
 				t.Errorf("CCEFlags length mismatch: got %d, want %d", len(result.CCEFlags), len(tt.expectedResult.CCEFlags))
@@ -992,7 +991,7 @@ func TestYoloFlagTransformation(t *testing.T) {
 					t.Errorf("CCEFlags[%s] mismatch: got %q, want %q", key, actualValue, expectedValue)
 				}
 			}
-			
+
 			// Check Claude args
 			if len(result.ClaudeArgs) != len(tt.expectedResult.ClaudeArgs) {
 				t.Errorf("ClaudeArgs length mismatch: got %d, want %d", len(result.ClaudeArgs), len(tt.expectedResult.ClaudeArgs))
@@ -1010,27 +1009,27 @@ func TestYoloFlagEdgeCases(t *testing.T) {
 	t.Run("--yolo mixed with other Claude flags", func(t *testing.T) {
 		args := []string{"--yolo", "--verbose", "--model", "claude-3", "--yolo"}
 		result := parseArguments(args)
-		
+
 		expectedArgs := []string{"--dangerously-skip-permissions", "--verbose", "--model", "claude-3", "--dangerously-skip-permissions"}
 		if len(result.ClaudeArgs) != len(expectedArgs) {
 			t.Errorf("ClaudeArgs length mismatch: got %d, want %d", len(result.ClaudeArgs), len(expectedArgs))
 		}
-		
+
 		for i, expected := range expectedArgs {
 			if i >= len(result.ClaudeArgs) || result.ClaudeArgs[i] != expected {
 				t.Errorf("ClaudeArgs[%d] mismatch: got %q, want %q", i, result.ClaudeArgs[i], expected)
 			}
 		}
 	})
-	
+
 	t.Run("--yolo with key-var override", func(t *testing.T) {
 		args := []string{"--key-var", "ANTHROPIC_AUTH_TOKEN", "--yolo", "chat"}
 		result := parseArguments(args)
-		
+
 		if result.CCEFlags["key_var"] != "ANTHROPIC_AUTH_TOKEN" {
 			t.Errorf("key_var flag not captured: got %q, want %q", result.CCEFlags["key_var"], "ANTHROPIC_AUTH_TOKEN")
 		}
-		
+
 		expectedArgs := []string{"--dangerously-skip-permissions", "chat"}
 		if len(result.ClaudeArgs) != len(expectedArgs) {
 			t.Errorf("ClaudeArgs length mismatch: got %d, want %d", len(result.ClaudeArgs), len(expectedArgs))

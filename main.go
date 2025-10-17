@@ -289,9 +289,6 @@ func validateAPIKey(apiKey string) error {
 	if len(apiKey) < 10 {
 		return fmt.Errorf("API key too short (minimum 10 characters)")
 	}
-	if len(apiKey) > 200 {
-		return fmt.Errorf("API key too long (maximum 200 characters)")
-	}
 	// Reject control characters
 	for _, r := range apiKey {
 		if r < 32 || r == 127 {
@@ -470,7 +467,7 @@ func parseArguments(args []string) ParseResult {
 		// Collect all arguments, but skip CCE flags and transform --yolo
 		for j := 0; j < len(args); j++ {
 			arg := args[j]
-			
+
 			// Skip CCE flags we already processed
 			if (arg == "--env" || arg == "-e") && j+1 < len(args) {
 				j++ // Skip the flag value too
@@ -483,7 +480,7 @@ func parseArguments(args []string) ParseResult {
 			if arg == "--help" || arg == "-h" {
 				continue
 			}
-			
+
 			// Transform --yolo
 			if arg == "--yolo" {
 				transformedArgs = append(transformedArgs, "--dangerously-skip-permissions")
