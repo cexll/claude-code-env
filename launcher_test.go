@@ -146,7 +146,7 @@ func TestLaunchClaudeCodeValidation(t *testing.T) {
 	}
 
 	// This should fail during environment preparation
-	err := launchClaudeCode(invalidEnv, []string{})
+	err := launchClaudeCode(invalidEnv, []string{}, "")
 	if err == nil {
 		t.Error("Expected error with invalid environment")
 	}
@@ -164,7 +164,7 @@ func TestLaunchClaudeCodeWithOutputValidation(t *testing.T) {
 	}
 
 	// This should fail during environment preparation
-	err := launchClaudeCodeWithOutput(invalidEnv, []string{})
+	err := launchClaudeCodeWithOutput(invalidEnv, []string{}, "")
 	if err == nil {
 		t.Error("Expected error with invalid environment")
 	}

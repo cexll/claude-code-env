@@ -132,10 +132,11 @@ type ArgumentParser struct {
 
 // ParseResult contains the results of argument parsing
 type ParseResult struct {
-	CCEFlags   map[string]string
-	ClaudeArgs []string
-	Subcommand string
-	Error      error
+	CCEFlags        map[string]string
+	ClaudeArgs      []string
+	Subcommand      string
+	Error           error
+	WorktreeEnabled bool
 }
 
 // CCECommand represents a parsed command with environment and claude arguments
@@ -445,6 +446,12 @@ func parseArguments(args []string) ParseResult {
 			continue
 		}
 
+		if arg == "--wk" {
+			result.WorktreeEnabled = true
+			i++
+			continue
+		}
+
 		// If we encounter an unknown flag or argument, stop CCE processing
 		break
 	}
@@ -478,6 +485,9 @@ func parseArguments(args []string) ParseResult {
 				continue
 			}
 			if arg == "--help" || arg == "-h" {
+				continue
+			}
+			if arg == "--wk" {
 				continue
 			}
 
@@ -644,7 +654,7 @@ func handleCommand(args []string) error {
 	// Handle default behavior with environment selection and claude arguments
 	envName := parseResult.CCEFlags["env"]
 	keyVarOverride := parseResult.CCEFlags["key_var"]
-	return runDefaultWithOverride(envName, parseResult.ClaudeArgs, keyVarOverride)
+	return runDefaultWithOverride(envName, parseResult.ClaudeArgs, keyVarOverride, parseResult.WorktreeEnabled)
 }
 
 // showHelp displays usage information including flag passthrough capability
@@ -660,6 +670,7 @@ func showHelp() {
 	fmt.Println("\nOptions:")
 	fmt.Println("  -e, --env <name>    Use specific environment")
 	fmt.Println("  -k, --key-var <name> Override API key env var for this run (ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN)")
+	fmt.Println("      --wk           Create a temporary git worktree before launching Claude Code")
 	fmt.Println("  -h, --help          Show help")
 	fmt.Println("      --version       Show version information")
 	fmt.Println("      --yolo          Shortcut for --dangerously-skip-permissions (passed to claude)")
@@ -686,6 +697,11 @@ func showHelp() {
 	fmt.Println("  cce --yolo                       Launch claude with --dangerously-skip-permissions")
 	fmt.Println("  cce --env prod --yolo            Use 'prod' env and bypass permissions")
 	fmt.Println("  cce --yolo --yolo -- command     Multiple --yolo flags (each becomes --dangerously-skip-permissions)")
+	fmt.Println("\nWorktree (--wk) Examples:")
+	fmt.Println("  cce --wk --env prod -- chat --verbose  Create git worktree then launch Claude Code with prod env")
+	fmt.Println("  cce --wk -- --help                     Create git worktree and pass --help to Claude Code")
+	fmt.Println("  Cleanup: git worktree remove <path>    Manually remove a worktree after use")
+	fmt.Println("  Cleanup (prune): git worktree prune    Clean up stale git worktrees")
 }
 
 // showVersion prints the CLI version information
@@ -695,11 +711,14 @@ func showVersion() {
 
 // runDefault handles the default behavior: environment selection and Claude Code launch with arguments
 func runDefault(envName string, claudeArgs []string) error {
-	return runDefaultWithOverride(envName, claudeArgs, "")
+	return runDefaultWithOverride(envName, claudeArgs, "", false)
 }
 
+// claudeLauncher allows tests to replace the exec-based launcher.
+var claudeLauncher = launchClaudeCode
+
 // runDefaultWithOverride handles the default behavior with optional API key env var override
-func runDefaultWithOverride(envName string, claudeArgs []string, keyVarOverride string) error {
+func runDefaultWithOverride(envName string, claudeArgs []string, keyVarOverride string, worktreeEnabled bool) error {
 	// Validate override early
 	if keyVarOverride != "" {
 		keyVarOverride = strings.ToUpper(keyVarOverride)
@@ -707,6 +726,9 @@ func runDefaultWithOverride(envName string, claudeArgs []string, keyVarOverride 
 			return fmt.Errorf("argument validation failed: invalid --key-var: %w", err)
 		}
 	}
+
+	var worktreePath string
+	var worktreeWarning string
 
 	// Load configuration
 	config, err := loadConfig()
@@ -736,13 +758,46 @@ func runDefaultWithOverride(envName string, claudeArgs []string, keyVarOverride 
 		selectedEnv.APIKeyEnv = keyVarOverride
 	}
 
+	if worktreeEnabled {
+		wm := NewWorktreeManager("")
+
+		branch, err := wm.getCurrentBranch()
+		if err != nil {
+			errorCtx := newErrorContext("worktree preparation", "main runner")
+			errorCtx.addSuggestion("Run without --wk to skip git worktree creation")
+			return errorCtx.formatError(err)
+		}
+
+		worktreeWarning, err = wm.checkDirtyTree()
+		if err != nil {
+			errorCtx := newErrorContext("working tree status check", "main runner")
+			errorCtx.addSuggestion("Run without --wk if git status cannot be determined")
+			return errorCtx.formatError(err)
+		}
+
+		if err := wm.createWorktree(branch); err != nil {
+			errorCtx := newErrorContext("worktree creation", "main runner")
+			errorCtx.addContext("branch", branch)
+			errorCtx.addSuggestion("Run without --wk if worktree setup is not required")
+			return errorCtx.formatError(err)
+		}
+
+		worktreePath = wm.getWorktreePath()
+
+		caps := detectTerminalCapabilities()
+		headless := isHeadlessMode()
+		if err := renderWorktreeSummary(os.Stdout, os.Stderr, worktreePath, worktreeWarning, caps, headless); err != nil {
+			return fmt.Errorf("failed to display worktree summary: %w", err)
+		}
+	}
+
 	// Display selected environment
 	if _, err := fmt.Printf("Using environment: %s (%s)\n", selectedEnv.Name, selectedEnv.URL); err != nil {
 		return fmt.Errorf("failed to display selected environment: %w", err)
 	}
 
 	// Launch Claude Code with arguments
-	return launchClaudeCode(selectedEnv, claudeArgs)
+	return claudeLauncher(selectedEnv, claudeArgs, worktreePath)
 }
 
 // runList displays all configured environments

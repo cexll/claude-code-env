@@ -117,7 +117,8 @@ func prepareEnvironment(env Environment) ([]string, error) {
 }
 
 // launchClaudeCode executes claude with the specified environment and arguments
-func launchClaudeCode(env Environment, args []string) error {
+// If workdir is provided, claude is launched from that directory.
+func launchClaudeCode(env Environment, args []string, workdir string) error {
 	// Check if claude exists and is executable
 	if err := checkClaudeCodeExists(); err != nil {
 		return fmt.Errorf("Claude Code launcher failed: %w", err)
@@ -135,6 +136,15 @@ func launchClaudeCode(env Environment, args []string) error {
 		return fmt.Errorf("Claude Code launcher failed - executable not found: %w", err)
 	}
 
+	if workdir != "" {
+		if err := os.Chdir(workdir); err != nil {
+			errorCtx := newErrorContext("working directory change", "launcher")
+			errorCtx.addContext("path", workdir)
+			errorCtx.addSuggestion("Verify the worktree path exists and is accessible")
+			return errorCtx.formatError(err)
+		}
+	}
+
 	// Prepare command arguments
 	cmdArgs := append([]string{"claude"}, args...)
 
@@ -148,7 +158,8 @@ func launchClaudeCode(env Environment, args []string) error {
 }
 
 // launchClaudeCodeWithOutput executes claude and waits for it to complete (for testing)
-func launchClaudeCodeWithOutput(env Environment, args []string) error {
+// If workdir is provided, claude is launched from that directory.
+func launchClaudeCodeWithOutput(env Environment, args []string, workdir string) error {
 	// Check if claude exists and is executable
 	if err := checkClaudeCodeExists(); err != nil {
 		return fmt.Errorf("Claude Code launcher failed: %w", err)
@@ -162,6 +173,9 @@ func launchClaudeCodeWithOutput(env Environment, args []string) error {
 
 	// Create command
 	cmd := exec.Command("claude", args...)
+	if workdir != "" {
+		cmd.Dir = workdir
+	}
 	cmd.Env = envVars
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

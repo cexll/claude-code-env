@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -853,6 +854,80 @@ func isHeadlessMode() bool {
 	}
 
 	return false
+}
+
+// formatWarningMessage normalizes warning text and applies optional ANSI coloring.
+func formatWarningMessage(message string, enableANSI bool) string {
+	trimmed := strings.TrimSpace(message)
+	if trimmed == "" {
+		return ""
+	}
+
+	lower := strings.ToLower(trimmed)
+	if strings.HasPrefix(lower, "warning:") {
+		trimmed = strings.TrimSpace(trimmed[len("warning:"):])
+	}
+
+	base := "Warning: " + trimmed
+	if !enableANSI {
+		return base
+	}
+
+	return "\033[33m" + base + "\033[0m"
+}
+
+// renderWorktreeSummary emits concise, ANSI-safe worktree details to the provided writers.
+func renderWorktreeSummary(out io.Writer, errOut io.Writer, worktreePath string, dirtyWarning string, caps terminalCapabilities, headless bool) error {
+	path := strings.TrimSpace(worktreePath)
+	if path == "" {
+		return fmt.Errorf("worktree path cannot be empty")
+	}
+
+	cleanupCmd := fmt.Sprintf("git worktree remove %s", path)
+	pruneCmd := "git worktree prune"
+	useANSI := caps.SupportsANSI && caps.IsTerminal && !headless
+
+	if headless {
+		if _, err := fmt.Fprintf(out, "Worktree: %s\n", path); err != nil {
+			return fmt.Errorf("failed to display worktree path: %w", err)
+		}
+		if dirtyWarning != "" {
+			if warningLine := formatWarningMessage(dirtyWarning, useANSI); warningLine != "" {
+				if _, err := fmt.Fprintln(errOut, warningLine); err != nil {
+					return fmt.Errorf("failed to display worktree warning: %w", err)
+				}
+			}
+		}
+		if _, err := fmt.Fprintf(out, "Cleanup: %s\n", cleanupCmd); err != nil {
+			return fmt.Errorf("failed to display cleanup command: %w", err)
+		}
+		if _, err := fmt.Fprintf(out, "Cleanup (prune): %s\n", pruneCmd); err != nil {
+			return fmt.Errorf("failed to display prune command: %w", err)
+		}
+		return nil
+	}
+
+	if _, err := fmt.Fprintf(out, "Worktree created at: %s\n", path); err != nil {
+		return fmt.Errorf("failed to display worktree path: %w", err)
+	}
+
+	if dirtyWarning != "" {
+		if warningLine := formatWarningMessage(dirtyWarning, useANSI); warningLine != "" {
+			if _, err := fmt.Fprintln(errOut, warningLine); err != nil {
+				return fmt.Errorf("failed to display worktree warning: %w", err)
+			}
+		}
+	}
+
+	if _, err := fmt.Fprintf(out, "Cleanup: %s\n", cleanupCmd); err != nil {
+		return fmt.Errorf("failed to display cleanup command: %w", err)
+	}
+
+	if _, err := fmt.Fprintf(out, "Cleanup (prune): %s\n", pruneCmd); err != nil {
+		return fmt.Errorf("failed to display prune command: %w", err)
+	}
+
+	return nil
 }
 
 // fallbackToNumberedSelection uses existing numbered selection menu

@@ -407,7 +407,7 @@ func TestLauncherFunctionsCoverage(t *testing.T) {
 		}
 
 		// This will fail because claude-code is not available, but tests the code path
-		err := launchClaudeCodeWithOutput(env, []string{"--help"})
+		err := launchClaudeCodeWithOutput(env, []string{"--help"}, "")
 		if err == nil {
 			t.Error("Expected error when claude-code not available")
 		}
@@ -431,7 +431,7 @@ func TestLauncherFunctionsCoverage(t *testing.T) {
 		}
 
 		// This will fail because claude-code is not available, but tests the code path
-		err := launchClaudeCodeWithOutput(env, []string{"--version"})
+		err := launchClaudeCodeWithOutput(env, []string{"--version"}, "")
 		if err == nil {
 			t.Error("Expected error when claude-code not available")
 		}

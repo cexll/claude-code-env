@@ -40,7 +40,8 @@
       "Bash(./simple-cce:*)",
       "Bash(./cce help)",
       "Bash(./cce list)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Skill(codex)"
     ],
     "deny": []
   }

@@ -2,12 +2,39 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+// captureStdout redirects stdout for the duration of the provided function and returns its output.
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+
+	original := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+
+	os.Stdout = w
+	fn()
+	if err := w.Close(); err != nil {
+		t.Fatalf("failed to close write pipe: %v", err)
+	}
+	os.Stdout = original
+
+	out, err := io.ReadAll(r)
+	_ = r.Close()
+	if err != nil {
+		t.Fatalf("failed to read stdout: %v", err)
+	}
+
+	return string(out)
+}
 
 func TestValidateName(t *testing.T) {
 	tests := []struct {
@@ -788,6 +815,101 @@ func TestParseArgumentsEdgeCases(t *testing.T) {
 		// Should capture the last one
 		if result.CCEFlags["env"] != "second" {
 			t.Errorf("Multiple env flags not handled correctly: got %q, want %q", result.CCEFlags["env"], "second")
+		}
+	})
+}
+
+func TestFlagParsing(t *testing.T) {
+	tests := []struct {
+		name           string
+		args           []string
+		wantEnv        string
+		wantWorktree   bool
+		wantClaudeArgs []string
+	}{
+		{
+			name:           "worktree with env and claude args",
+			args:           []string{"--wk", "--env", "prod", "chat", "--fast"},
+			wantEnv:        "prod",
+			wantWorktree:   true,
+			wantClaudeArgs: []string{"chat", "--fast"},
+		},
+		{
+			name:           "worktree parsed before separator",
+			args:           []string{"--wk", "--", "chat", "--interactive"},
+			wantEnv:        "",
+			wantWorktree:   true,
+			wantClaudeArgs: []string{"chat", "--interactive"},
+		},
+		{
+			name:           "worktree after separator treated as claude arg",
+			args:           []string{"--", "--wk", "chat"},
+			wantEnv:        "",
+			wantWorktree:   false,
+			wantClaudeArgs: []string{"--wk", "chat"},
+		},
+		{
+			name:           "no worktree flag present",
+			args:           []string{"--env", "prod"},
+			wantEnv:        "prod",
+			wantWorktree:   false,
+			wantClaudeArgs: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseArguments(tt.args)
+
+			if result.WorktreeEnabled != tt.wantWorktree {
+				t.Fatalf("WorktreeEnabled mismatch: got %v, want %v", result.WorktreeEnabled, tt.wantWorktree)
+			}
+
+			if tt.wantEnv != "" && result.CCEFlags["env"] != tt.wantEnv {
+				t.Fatalf("env flag mismatch: got %q, want %q", result.CCEFlags["env"], tt.wantEnv)
+			}
+
+			if len(result.ClaudeArgs) != len(tt.wantClaudeArgs) {
+				t.Fatalf("ClaudeArgs length mismatch: got %d, want %d", len(result.ClaudeArgs), len(tt.wantClaudeArgs))
+			}
+			for i, expected := range tt.wantClaudeArgs {
+				if result.ClaudeArgs[i] != expected {
+					t.Fatalf("ClaudeArgs[%d] mismatch: got %q, want %q", i, result.ClaudeArgs[i], expected)
+				}
+			}
+		})
+	}
+}
+
+func TestWorktreeFlag(t *testing.T) {
+	t.Run("help text documents worktree lifecycle", func(t *testing.T) {
+		output := captureStdout(t, showHelp)
+
+		for _, snippet := range []string{"--wk", "git worktree remove", "git worktree prune"} {
+			if !strings.Contains(output, snippet) {
+				t.Fatalf("help text missing expected snippet %q", snippet)
+			}
+		}
+	})
+
+	t.Run("flag passthrough unaffected by worktree flag", func(t *testing.T) {
+		args := []string{"--wk", "--env", "prod", "--", "--model", "claude-3"}
+		result := parseArguments(args)
+
+		if !result.WorktreeEnabled {
+			t.Fatalf("expected WorktreeEnabled to be true")
+		}
+		if result.CCEFlags["env"] != "prod" {
+			t.Fatalf("env flag mismatch: got %q, want %q", result.CCEFlags["env"], "prod")
+		}
+		expectedClaude := []string{"--model", "claude-3"}
+		if len(result.ClaudeArgs) != len(expectedClaude) {
+			t.Fatalf("ClaudeArgs length mismatch: got %d, want %d", len(result.ClaudeArgs), len(expectedClaude))
+		}
+		for i, expected := range expectedClaude {
+			if result.ClaudeArgs[i] != expected {
+				t.Fatalf("ClaudeArgs[%d] mismatch: got %q, want %q", i, result.ClaudeArgs[i], expected)
+			}
 		}
 	})
 }
