@@ -754,7 +754,7 @@ func fullInteractiveSelection(config Config, caps terminalCapabilities) (Environ
 	defer termState.ensureRestore()
 	defer cleanupDisplayState() // Clean up display state on exit
 
-	selectedIndex := 0
+	selectedIndex := getLastSelectedIndex(config)
 	buffer := make([]byte, 10)
 
 	for {
@@ -799,7 +799,7 @@ func basicInteractiveSelection(config Config, caps terminalCapabilities) (Enviro
 	defer termState.ensureRestore()
 	defer cleanupDisplayState() // Clean up display state on exit
 
-	selectedIndex := 0
+	selectedIndex := getLastSelectedIndex(config)
 	buffer := make([]byte, 10)
 
 	for {

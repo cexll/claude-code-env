@@ -398,5 +398,32 @@ func removeEnvironmentFromConfig(config *Config, name string) error {
 
 	// Remove environment by copying elements
 	config.Environments = append(config.Environments[:index], config.Environments[index+1:]...)
+	
+	// Clear last selected if it was the removed environment
+	if config.LastSelected == name {
+		config.LastSelected = ""
+	}
+	
 	return nil
+}
+
+// updateLastSelected updates the last selected environment in the configuration
+func updateLastSelected(config *Config, envName string) {
+	// Only update if the environment exists
+	if _, exists := findEnvironmentByName(*config, envName); exists {
+		config.LastSelected = envName
+	}
+}
+
+// getLastSelectedIndex returns the index of the last selected environment, or 0 if not found
+func getLastSelectedIndex(config Config) int {
+	if config.LastSelected == "" {
+		return 0 // Default to first environment
+	}
+	
+	if index, exists := findEnvironmentByName(config, config.LastSelected); exists {
+		return index
+	}
+	
+	return 0 // Default to first environment if last selected not found
 }
