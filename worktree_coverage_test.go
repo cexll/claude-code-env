@@ -215,7 +215,7 @@ func TestWorktreeGenerateWorktreeNameDefaults(t *testing.T) {
 		},
 	}
 	name := wm.generateWorktreeName("")
-	want := "cce-worktree-unknown-20250303-040506-789000000"
+	want := "claude-code-env-unknown-20250303-040506-789000000"
 	if name != want {
 		t.Fatalf("unexpected name: got %s, want %s", name, want)
 	}

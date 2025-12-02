@@ -98,7 +98,7 @@ func TestWorktreeManager(t *testing.T) {
 			},
 			run: func(t *testing.T, wm *WorktreeManager) {
 				name := wm.generateWorktreeName("feature/test-branch")
-				expected := "cce-worktree-feature-test-branch-20250101-120000-123000000"
+				expected := "claude-code-env-feature-test-branch-20250101-120000-123000000"
 				if name != expected {
 					t.Fatalf("expected %s, got %s", expected, name)
 				}

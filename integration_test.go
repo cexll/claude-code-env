@@ -344,8 +344,10 @@ func TestEndToEndWorktreeFlow(t *testing.T) {
 			t.Fatalf("env vars should be forwarded intact: %+v", receivedEnv.EnvVars)
 		}
 
-		if !strings.HasPrefix(filepath.Base(receivedWorkdir), "cce-worktree-") {
-			t.Fatalf("worktree name not generated correctly: %s", receivedWorkdir)
+		// Check worktree directory name contains timestamp pattern (YYYYMMDD-HHMMSS)
+		baseName := filepath.Base(receivedWorkdir)
+		if !strings.Contains(baseName, "-") || len(baseName) < 20 {
+			t.Fatalf("worktree name not generated correctly (expected project-branch-timestamp format): %s", receivedWorkdir)
 		}
 		if !strings.Contains(stdout, receivedWorkdir) {
 			t.Fatalf("worktree path missing from output: %q", stdout)

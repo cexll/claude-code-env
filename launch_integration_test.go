@@ -121,8 +121,10 @@ func TestWorktreeExecution(t *testing.T) {
 		if !launchCalled {
 			t.Fatal("expected claudeLauncher to be invoked")
 		}
-		if !strings.HasPrefix(filepath.Base(receivedWorkdir), "cce-worktree-") {
-			t.Fatalf("expected generated worktree directory, got %s", receivedWorkdir)
+		// Check worktree directory name contains timestamp pattern (YYYYMMDD-HHMMSS)
+		baseName := filepath.Base(receivedWorkdir)
+		if !strings.Contains(baseName, "-") || len(baseName) < 20 {
+			t.Fatalf("expected generated worktree directory with project-branch-timestamp format, got %s", receivedWorkdir)
 		}
 		if len(receivedArgs) != 2 || receivedArgs[0] != "chat" || receivedArgs[1] != "--fast" {
 			t.Fatalf("claude args mismatch: %v", receivedArgs)

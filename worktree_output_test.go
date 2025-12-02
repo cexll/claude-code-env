@@ -11,7 +11,7 @@ func TestWorktreeOutput(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		caps := terminalCapabilities{SupportsANSI: true, IsTerminal: true}
 
-		path := "/tmp/repo/.git/worktrees/cce-worktree-main-20251129-123456789"
+		path := "/tmp/repo/.git/worktrees/myproject-main-20251129-123456-789000000"
 		warning := "warning: uncommitted changes detected in working tree"
 
 		if err := renderWorktreeSummary(&stdout, &stderr, path, warning, caps, false); err != nil {
@@ -42,7 +42,7 @@ func TestWorktreeOutput(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		caps := terminalCapabilities{SupportsANSI: true, IsTerminal: false}
 
-		path := "/tmp/repo/.git/worktrees/cce-worktree-compact"
+		path := "/tmp/repo/.git/worktrees/myproject-feature-20251201-100000-000000000"
 		if err := renderWorktreeSummary(&stdout, &stderr, path, "", caps, true); err != nil {
 			t.Fatalf("renderWorktreeSummary returned error: %v", err)
 		}

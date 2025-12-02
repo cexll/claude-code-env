@@ -156,9 +156,26 @@ func (wm *WorktreeManager) checkDirtyTree() (string, error) {
 	return "", nil
 }
 
-// generateWorktreeName produces cce-worktree-<branch>-<timestamp> and stores it for reuse.
+// generateWorktreeName produces <project>-<branch>-<timestamp> and stores it for reuse.
 func (wm *WorktreeManager) generateWorktreeName(branch string) string {
-	sanitized := sanitizeBranchName(branch)
+	// Extract project name from repository path
+	projectName := "unknown"
+	repoPath := wm.repoPath
+
+	// If repoPath is relative or empty, try to resolve it
+	if repoPath == "" || repoPath == "." {
+		if err := wm.detectGitRepo(); err == nil {
+			repoPath = wm.repoPath
+		}
+	}
+
+	if repoPath != "" && repoPath != "." {
+		projectName = filepath.Base(repoPath)
+	}
+
+	sanitizedProject := sanitizeBranchName(projectName)
+	sanitizedBranch := sanitizeBranchName(branch)
+
 	nowFn := wm.now
 	if nowFn == nil {
 		nowFn = time.Now
@@ -166,7 +183,7 @@ func (wm *WorktreeManager) generateWorktreeName(branch string) string {
 
 	current := nowFn().UTC()
 	timestamp := fmt.Sprintf("%s-%09d", current.Format("20060102-150405"), current.Nanosecond())
-	name := fmt.Sprintf("cce-worktree-%s-%s", sanitized, timestamp)
+	name := fmt.Sprintf("%s-%s-%s", sanitizedProject, sanitizedBranch, timestamp)
 	wm.worktreeName = name
 	return name
 }
