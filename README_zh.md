@@ -1,14 +1,23 @@
 # Claude Code 环境切换器 (CCE)
+
+[![Go Version](https://img.shields.io/github/go-mod/go-version/cexll/claude-code-env)](https://go.dev/)
+[![Release](https://img.shields.io/github/v/release/cexll/claude-code-env)](https://github.com/cexll/claude-code-env/releases/latest)
+[![License](https://img.shields.io/github/license/cexll/claude-code-env)](LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/cexll/claude-code-env)](https://goreportcard.com/report/github.com/cexll/claude-code-env)
+
 [中文](./README_zh.md) [English](./README.md)
 
 生产就绪的 Go CLI 工具，用于管理多个 Claude Code API 端点配置，实现环境间无缝切换（生产、测试、自定义 API 提供商等）。CCE 作为 Claude Code 的智能包装器，具备**标志透传**、**无 ANSI 显示管理**和**通用终端兼容性**功能。
 
-## 🆕 最近更新
+## 🆕 最新功能
+- **Git Worktree 集成**：`--wk` 标志支持自动创建和管理 Git worktree
+- **自动化发布**：GitHub Actions 工作流支持多平台二进制发布
+- **一键安装**：基于 curl 的安装脚本，支持 SHA256 校验（Linux/macOS）
 - **--yolo 标志**：`--dangerously-skip-permissions` 的便捷快捷方式
-- 支持为每个环境选择 API Key 变量名：`ANTHROPIC_API_KEY`（默认）或 `ANTHROPIC_AUTH_TOKEN`。
-- `cce add` 新增选择变量名的交互步骤。
-- `cce list` 增加 `Key Var: ...` 展示。
-- API 密钥校验改为与提供商无关（仅长度与字符安全），提高兼容性。
+- 支持为每个环境选择 API Key 变量名：`ANTHROPIC_API_KEY`（默认）或 `ANTHROPIC_AUTH_TOKEN`
+- `cce add` 新增选择变量名的交互步骤
+- `cce list` 增加 `Key Var: ...` 展示
+- API 密钥校验改为与提供商无关（仅长度与字符安全），提高兼容性
 
 ## ✨ 核心特性
 
@@ -33,30 +42,70 @@
 
 ## 📦 安装
 
-### 通过 go install 安装（推荐）
+### 方式 1：一键安装脚本（推荐 - Linux/macOS）
+
+快速安装最新版本，自动 SHA256 校验：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cexll/claude-code-env/master/install.sh | bash
+```
+
+**脚本功能：**
+- 自动检测操作系统和架构（Linux/macOS, x64/ARM64）
+- 从 GitHub Releases 下载最新的预编译二进制文件
+- SHA256 校验和验证确保完整性
+- 安装到 `/usr/local/bin`（如果没有 sudo 权限则安装到 `~/.local/bin`）
+- 自动添加到 PATH（如果需要）
+
+### 方式 2：手动从发布版下载
+
+从 [Releases 页面](https://github.com/cexll/claude-code-env/releases/latest) 下载适合您平台的预编译二进制文件：
+
+```bash
+# 示例：Linux AMD64
+wget https://github.com/cexll/claude-code-env/releases/download/v2.4.0/cce-linux-amd64
+chmod +x cce-linux-amd64
+sudo mv cce-linux-amd64 /usr/local/bin/cce
+
+# 示例：macOS ARM64 (Apple Silicon)
+wget https://github.com/cexll/claude-code-env/releases/download/v2.4.0/cce-darwin-arm64
+chmod +x cce-darwin-arm64
+sudo mv cce-darwin-arm64 /usr/local/bin/cce
+```
+
+**可用平台：**
+- `cce-linux-amd64` - Linux (x64)
+- `cce-linux-arm64` - Linux (ARM64)
+- `cce-darwin-amd64` - macOS (Intel)
+- `cce-darwin-arm64` - macOS (Apple Silicon)
+- `cce-windows-amd64.exe` - Windows (x64)
+
+### 方式 3：通过 go install 安装
+
+如果已安装 Go 1.21+：
 
 ```bash
 # 安装最新版本
 go install github.com/cexll/claude-code-env@latest
 
 # 或安装特定版本
-go install github.com/cexll/claude-code-env@v2.1.0
+go install github.com/cexll/claude-code-env@v2.4.0
 ```
 
-### 从源码构建
+### 方式 4：从源码构建
 
 ```bash
 git clone https://github.com/cexll/claude-code-env.git
 cd claude-code-env
 go build -o cce .
+sudo mv cce /usr/local/bin/
 ```
 
-### 安装到系统 PATH
+### 验证安装
 
 ```bash
-sudo mv cce /usr/local/bin/
-# 验证安装
 cce --help
+cce list  # 列出已配置的环境
 ```
 
 ## 🚀 使用方法
@@ -73,6 +122,19 @@ cce  # 显示带箭头导航的响应式环境选择菜单
 cce --env production     # 或 -e production
 cce -e staging          # 使用测试环境启动
 ```
+
+#### Git Worktree 集成
+```bash
+cce --wk feature-branch              # 在 worktree 中创建/切换到分支并启动
+cce -e staging --wk bugfix-auth      # 使用特定环境在 worktree 中启动
+cce --wk .                           # 在当前分支的 worktree 中启动
+```
+
+**Worktree 功能：**
+- 如果分支不存在，自动创建 worktree（目录：`../项目名-分支名`）
+- 如果分支已存在于 worktree 中，直接切换并启动
+- 使用 `--wk .` 在当前分支的独立 worktree 中启动
+- 与环境标志（`-e/--env`）和其他标志无缝配合
 
 #### 标志透传示例
 ```bash
@@ -152,6 +214,7 @@ cce [选项] [-- claude-参数...]
 
 选项:
   -e, --env <名称>        使用特定环境
+  -w, --wk <分支>         在 git worktree 中创建/切换到分支（使用 '.' 表示当前分支）
   -k, --key-var <名称>    临时覆盖本次运行的 API Key 变量名（ANTHROPIC_API_KEY 或 ANTHROPIC_AUTH_TOKEN）
   -h, --help              显示带示例的综合帮助
       --yolo              快速跳过权限检查（--dangerously-skip-permissions 的快捷方式）
@@ -168,13 +231,32 @@ cce [选项] [-- claude-参数...]
 示例:
   cce                              交互式选择和启动
   cce --env prod                   使用 'prod' 环境启动
+  cce --wk feature-auth            在 worktree 中创建/切换分支并启动
+  cce -e staging --wk bugfix       在测试环境的 worktree 中启动
   cce -r                           使用默认环境将 -r 标志传递给 claude
   cce --env staging --verbose      使用测试环境，将 --verbose 传递给 claude
   cce --env dev -k ANTHROPIC_AUTH_TOKEN -- chat  本次运行覆盖 Key 变量名
   cce -- --help                    显示 claude 的帮助
   cce --yolo                       快速跳过权限检查
-  cce --env prod --yolo           使用生产环境并跳过权限
+  cce --env prod --yolo            使用生产环境并跳过权限
 ```
+
+## 📋 发布说明
+
+### 自动化构建和发布
+
+每个发布版本都通过 GitHub Actions 自动构建和发布，支持多平台：
+- **Linux**：AMD64, ARM64
+- **macOS**：AMD64 (Intel), ARM64 (Apple Silicon)
+- **Windows**：AMD64
+
+所有二进制文件都包含：
+- SHA256 校验和用于完整性验证
+- 经过测试套件验证
+- 自动版本标记
+
+**当前版本：** v2.4.0
+**发布页面：** [github.com/cexll/claude-code-env/releases](https://github.com/cexll/claude-code-env/releases)
 
 ## 📁 配置
 

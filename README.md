@@ -1,9 +1,17 @@
 # Claude Code Environment Switcher (CCE)
+
+[![Release](https://img.shields.io/github/v/release/cexll/claude-code-env)](https://github.com/cexll/claude-code-env/releases)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/cexll/claude-code-env)](https://github.com/cexll/claude-code-env/blob/master/go.mod)
+[![License](https://img.shields.io/github/license/cexll/claude-code-env)](https://github.com/cexll/claude-code-env/blob/master/LICENSE)
+[![Tests](https://github.com/cexll/claude-code-env/actions/workflows/build.yml/badge.svg)](https://github.com/cexll/claude-code-env/actions)
+
 [中文](./README_zh.md) [English](./README.md)
 
 A production-ready Go CLI tool that manages multiple Claude Code API endpoint configurations, enabling seamless switching between environments (production, staging, custom API providers, etc.). CCE acts as an intelligent wrapper around Claude Code with **flag passthrough**, **ANSI-free display management**, and **universal terminal compatibility**.
 
 ## 🆕 What's New
+- **Automated Releases**: GitHub Actions workflow for multi-platform binary releases
+- **One-line Installation**: curl-based installer with SHA256 verification (Linux/macOS)
 - **--yolo flag**: Quick shortcut for Claude's `--dangerously-skip-permissions` flag
 - Per-environment API key env var selection: choose between `ANTHROPIC_API_KEY` (default) and `ANTHROPIC_AUTH_TOKEN`.
 - `cce add` includes a prompt to select the key variable name.
@@ -33,14 +41,39 @@ A production-ready Go CLI tool that manages multiple Claude Code API endpoint co
 
 ## 📦 Installation
 
-### Install via go install (Recommended)
+### Quick Install (Recommended)
+
+**For Linux and macOS:**
+
+```bash
+# Install latest version
+curl -fsSL https://raw.githubusercontent.com/cexll/claude-code-env/master/install.sh | bash
+
+# Or install specific version
+VERSION=v2.4.0 bash -c "$(curl -fsSL https://raw.githubusercontent.com/cexll/claude-code-env/master/install.sh)"
+
+# Using wget
+wget -qO- https://raw.githubusercontent.com/cexll/claude-code-env/master/install.sh | bash
+```
+
+The install script will:
+- ✅ Auto-detect your OS and architecture
+- ✅ Download the latest release from GitHub
+- ✅ Verify SHA256 checksum
+- ✅ Install to `/usr/local/bin/cce`
+- ✅ Set proper permissions
+
+**For Windows:**
+Download the `.zip` file from [Releases](https://github.com/cexll/claude-code-env/releases/latest), extract it, and add to your PATH.
+
+### Alternative: Go Install
 
 ```bash
 # Install latest version
 go install github.com/cexll/claude-code-env@latest
 
 # Or install specific version
-go install github.com/cexll/claude-code-env@v2.1.0
+go install github.com/cexll/claude-code-env@v2.4.0
 ```
 
 ### Build from Source
@@ -48,15 +81,15 @@ go install github.com/cexll/claude-code-env@v2.1.0
 ```bash
 git clone https://github.com/cexll/claude-code-env.git
 cd claude-code-env
-go build -o cce .
+make build
+sudo make install  # Installs to /usr/local/bin/
 ```
 
-### Install to System PATH
+### Verify Installation
 
 ```bash
-sudo mv cce /usr/local/bin/
-# Verify installation
-cce --help
+cce --version
+# Output: CCE version v2.4.0
 ```
 
 ## 🚀 Usage
@@ -175,6 +208,21 @@ Examples:
   cce --yolo                       Quick bypass of permissions check
   cce --env prod --yolo           Use prod environment and skip permissions
 ```
+
+## 📥 Releases
+
+CCE uses automated GitHub Actions workflows to build and release binaries for multiple platforms:
+
+- **Linux**: amd64, arm64
+- **macOS**: amd64 (Intel), arm64 (Apple Silicon)
+- **Windows**: amd64
+
+Each release includes:
+- Pre-built binaries for all platforms
+- SHA256 checksums for verification
+- Automated testing and quality checks
+
+Download the latest release: [Releases Page](https://github.com/cexll/claude-code-env/releases/latest)
 
 ## 📁 Configuration
 
