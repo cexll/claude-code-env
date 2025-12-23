@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-// CCE version
-const cceVersion = "0.2.0"
+// Version can be overridden by ldflags during build (e.g., -X main.Version=v1.0.0)
+var Version = "dev"
 
 // modelValidator manages configurable model validation patterns
 type modelValidator struct {
@@ -706,7 +706,7 @@ func showHelp() {
 
 // showVersion prints the CLI version information
 func showVersion() {
-	fmt.Printf("CCE version %s\n", cceVersion)
+	fmt.Printf("CCE version %s\n", Version)
 }
 
 // runDefault handles the default behavior: environment selection and Claude Code launch with arguments

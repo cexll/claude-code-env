@@ -12,7 +12,7 @@ func TestShowVersionOutputsVersion(t *testing.T) {
 	if !strings.Contains(out, "CCE version") {
 		t.Fatalf("showVersion output missing version string: %q", out)
 	}
-	if !strings.Contains(out, cceVersion) {
+	if !strings.Contains(out, Version) {
 		t.Fatalf("showVersion output missing version number: %q", out)
 	}
 }

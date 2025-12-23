@@ -1,0 +1,352 @@
+name: 'Release'
+
+# This workflow automates the release process when a new version tag is created
+# It builds binaries for multiple platforms and creates a GitHub Release with all artifacts
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags (e.g., v1.0.0, v2.1.3)
+  workflow_dispatch:  # Allow manual triggering
+
+# Ensure only one release workflow runs at a time
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false  # Don't cancel release builds
+
+# Required permissions for creating releases
+permissions:
+  contents: write  # Create releases and upload assets
+  actions: read
+
+# Environment variables
+env:
+  GO_VERSION: '1.23'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # Run tests before building release artifacts
+  test:
+    name: 'Pre-release Tests'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run tests
+        run: |
+          echo "Running tests to ensure release quality..."
+          go test -v -race ./...
+
+      - name: Verify modules
+        run: |
+          go mod verify
+          go mod tidy
+          if ! git diff --quiet go.mod go.sum; then
+            echo "❌ go.mod or go.sum is not up to date"
+            exit 1
+          fi
+
+  # Build binaries for all platforms
+  build:
+    name: 'Build (${{ matrix.goos }}/${{ matrix.goarch }})'
+    runs-on: ubuntu-latest
+    needs: test
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for version info
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build binary with version injection
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          # Extract version from tag
+          VERSION="${{ github.ref_name }}"
+          echo "Building version: ${VERSION}"
+
+          # Determine binary extension
+          if [ "$GOOS" = "windows" ]; then
+            BINARY_EXT=".exe"
+            ARCHIVE_EXT=".zip"
+          else
+            BINARY_EXT=""
+            ARCHIVE_EXT=".tar.gz"
+          fi
+
+          # Build binary with version information
+          BINARY_NAME="cce-${GOOS}-${GOARCH}${BINARY_EXT}"
+          echo "Building ${BINARY_NAME}..."
+
+          go build \
+            -ldflags="-s -w -X main.Version=${VERSION}" \
+            -o "${BINARY_NAME}" \
+            .
+
+          # Verify binary was created
+          if [ ! -f "${BINARY_NAME}" ]; then
+            echo "❌ Failed to create binary: ${BINARY_NAME}"
+            exit 1
+          fi
+
+          echo "✅ Built ${BINARY_NAME} ($(du -h "${BINARY_NAME}" | cut -f1))"
+
+      - name: Create release package
+        run: |
+          GOOS="${{ matrix.goos }}"
+          GOARCH="${{ matrix.goarch }}"
+          VERSION="${{ github.ref_name }}"
+
+          # Determine extensions
+          if [ "$GOOS" = "windows" ]; then
+            BINARY_EXT=".exe"
+            ARCHIVE_EXT=".zip"
+          else
+            BINARY_EXT=""
+            ARCHIVE_EXT=".tar.gz"
+          fi
+
+          BINARY_NAME="cce-${GOOS}-${GOARCH}${BINARY_EXT}"
+          PACKAGE_NAME="cce-${VERSION}-${GOOS}-${GOARCH}"
+
+          # Create package directory
+          mkdir -p "${PACKAGE_NAME}"
+
+          # Copy binary
+          cp "${BINARY_NAME}" "${PACKAGE_NAME}/cce${BINARY_EXT}"
+
+          # Copy documentation files
+          for file in README.md README_zh.md LICENSE CHANGELOG.md; do
+            if [ -f "$file" ]; then
+              cp "$file" "${PACKAGE_NAME}/"
+            fi
+          done
+
+          # Create install script for Unix-like systems
+          if [ "$GOOS" != "windows" ]; then
+            cat > "${PACKAGE_NAME}/install.sh" << 'EOF'
+          #!/bin/bash
+          set -e
+
+          BINARY_NAME="cce"
+          INSTALL_DIR="/usr/local/bin"
+
+          echo "Installing Claude Code Environment Switcher..."
+
+          if [ "$EUID" -ne 0 ]; then
+            echo "This script requires root privileges. Please run with sudo."
+            exit 1
+          fi
+
+          cp "$BINARY_NAME" "$INSTALL_DIR/"
+          chmod +x "$INSTALL_DIR/$BINARY_NAME"
+
+          echo "✅ Installation complete!"
+          echo "Run: $BINARY_NAME --help"
+          EOF
+            chmod +x "${PACKAGE_NAME}/install.sh"
+          fi
+
+          # Create archive
+          if [ "$GOOS" = "windows" ]; then
+            zip -r "${PACKAGE_NAME}${ARCHIVE_EXT}" "${PACKAGE_NAME}/"
+          else
+            tar -czf "${PACKAGE_NAME}${ARCHIVE_EXT}" "${PACKAGE_NAME}/"
+          fi
+
+          # Generate checksum
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "${PACKAGE_NAME}${ARCHIVE_EXT}" > "${PACKAGE_NAME}${ARCHIVE_EXT}.sha256"
+          elif command -v shasum >/dev/null 2>&1; then
+            shasum -a 256 "${PACKAGE_NAME}${ARCHIVE_EXT}" > "${PACKAGE_NAME}${ARCHIVE_EXT}.sha256"
+          fi
+
+          echo "✅ Package created: ${PACKAGE_NAME}${ARCHIVE_EXT}"
+          ls -lh "${PACKAGE_NAME}${ARCHIVE_EXT}"*
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            cce-*.tar.gz
+            cce-*.zip
+            cce-*.sha256
+          retention-days: 7
+
+  # Create GitHub Release with all artifacts
+  release:
+    name: 'Create GitHub Release'
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Prepare release notes
+        id: release_notes
+        run: |
+          VERSION="${{ github.ref_name }}"
+
+          # Check if this is a pre-release
+          if [[ "$VERSION" =~ (alpha|beta|rc) ]]; then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Create release notes
+          cat > release_notes.md << EOF
+          ## Claude Code Environment Switcher ${VERSION}
+
+          ### Installation
+
+          Download the appropriate package for your platform below and extract it:
+
+          **Linux (amd64):**
+          \`\`\`bash
+          curl -LO https://github.com/cexll/claude-code-env/releases/download/${VERSION}/cce-${VERSION}-linux-amd64.tar.gz
+          tar -xzf cce-${VERSION}-linux-amd64.tar.gz
+          cd cce-${VERSION}-linux-amd64
+          sudo ./install.sh
+          \`\`\`
+
+          **Linux (arm64):**
+          \`\`\`bash
+          curl -LO https://github.com/cexll/claude-code-env/releases/download/${VERSION}/cce-${VERSION}-linux-arm64.tar.gz
+          tar -xzf cce-${VERSION}-linux-arm64.tar.gz
+          cd cce-${VERSION}-linux-arm64
+          sudo ./install.sh
+          \`\`\`
+
+          **macOS (Intel):**
+          \`\`\`bash
+          curl -LO https://github.com/cexll/claude-code-env/releases/download/${VERSION}/cce-${VERSION}-darwin-amd64.tar.gz
+          tar -xzf cce-${VERSION}-darwin-amd64.tar.gz
+          cd cce-${VERSION}-darwin-amd64
+          sudo ./install.sh
+          \`\`\`
+
+          **macOS (Apple Silicon):**
+          \`\`\`bash
+          curl -LO https://github.com/cexll/claude-code-env/releases/download/${VERSION}/cce-${VERSION}-darwin-arm64.tar.gz
+          tar -xzf cce-${VERSION}-darwin-arm64.tar.gz
+          cd cce-${VERSION}-darwin-arm64
+          sudo ./install.sh
+          \`\`\`
+
+          **Windows (amd64):**
+          Download \`cce-${VERSION}-windows-amd64.zip\`, extract it, and add \`cce.exe\` to your PATH.
+
+          ### Verification
+
+          All packages include SHA256 checksums. Verify your download:
+
+          \`\`\`bash
+          # Linux/macOS
+          sha256sum -c cce-${VERSION}-<platform>-<arch>.tar.gz.sha256
+
+          # Windows (PowerShell)
+          Get-FileHash cce-${VERSION}-windows-amd64.zip -Algorithm SHA256
+          \`\`\`
+
+          ### Supported Platforms
+
+          - Linux: amd64, arm64
+          - macOS: amd64 (Intel), arm64 (Apple Silicon)
+          - Windows: amd64
+
+          ### Quick Start
+
+          \`\`\`bash
+          # Verify installation
+          cce --help
+
+          # Add your first environment
+          cce add
+
+          # Launch Claude Code
+          cce
+          \`\`\`
+
+          ---
+
+          **Full documentation:** [README.md](https://github.com/cexll/claude-code-env#readme)
+          EOF
+
+          cat release_notes.md
+
+      - name: List artifacts
+        run: |
+          echo "Artifacts to be released:"
+          ls -lh ./artifacts/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: false
+          prerelease: ${{ steps.release_notes.outputs.prerelease }}
+          body_path: release_notes.md
+          files: |
+            ./artifacts/cce-*.tar.gz
+            ./artifacts/cce-*.zip
+            ./artifacts/cce-*.sha256
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release summary
+        run: |
+          echo "## Release Published! 🎉" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Pre-release:** ${{ steps.release_notes.outputs.prerelease }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Packages" >> $GITHUB_STEP_SUMMARY
+          echo "- Linux (amd64, arm64)" >> $GITHUB_STEP_SUMMARY
+          echo "- macOS (amd64, arm64)" >> $GITHUB_STEP_SUMMARY
+          echo "- Windows (amd64)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Links" >> $GITHUB_STEP_SUMMARY
+          echo "- [View Release](${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [Download Assets](${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }})" >> $GITHUB_STEP_SUMMARY
