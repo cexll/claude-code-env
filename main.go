@@ -287,8 +287,8 @@ func validateAPIKey(apiKey string) error {
 	if apiKey == "" {
 		return fmt.Errorf("API key cannot be empty")
 	}
-	if len(apiKey) < 10 {
-		return fmt.Errorf("API key too short (minimum 10 characters)")
+	if len(apiKey) < 1 {
+		return fmt.Errorf("API key too short (minimum 1 characters)")
 	}
 	// Reject control characters
 	for _, r := range apiKey {
